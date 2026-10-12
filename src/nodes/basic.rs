@@ -75,7 +75,11 @@ impl NodeKind for StaticImage {
         "An imported image."
     }
     fn params(&self) -> Vec<ParamDef> {
-        vec![ParamDef::hidden(IMAGE_PARAM, Value::Int(0)), ParamDef::hidden("width", Value::Int(1)), ParamDef::hidden("height", Value::Int(1))]
+        vec![
+            ParamDef::hidden(IMAGE_PARAM, Value::Int(0)),
+            ParamDef::hidden("width", Value::Int(1)),
+            ParamDef::hidden("height", Value::Int(1)),
+        ]
     }
     fn size(&self, node: &Node, _inputs: &[Option<Size>]) -> Option<Size> {
         Some(Size::new(node.params.f("width"), node.params.f("height")))

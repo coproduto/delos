@@ -54,6 +54,26 @@ pub enum Msg {
     Imported { name: String, result: Result<Arc<SourceImage>, String>, token: u64 },
     ExportProgress { id: u64, fraction: f32, status: Option<String> },
     ExportDone { id: u64, result: Result<ExportOutput, String> },
+    /// A project was created and the given images copied into it.
+    #[cfg(feature = "native")]
+    ProjectCreated { result: Result<crate::project::Project, String> },
+    #[cfg(feature = "native")]
+    ProjectOpened { result: Result<(crate::project::Project, Graph), String> },
+    /// `project.delos` was written (`seq` orders autosaves).
+    #[cfg(feature = "native")]
+    ProjectSaved { seq: u64, result: Result<(), String> },
+    #[cfg(feature = "native")]
+    ProjectShared { result: Result<String, String> },
+}
+
+/// Where an imported image's bytes come from.
+#[derive(Clone, Debug, Default)]
+pub struct ImportOptions {
+    /// The file the bytes were read from, if known.
+    pub origin: Option<std::path::PathBuf>,
+    /// Keep a copy of the bytes in the session stash when there is no
+    /// origin, so a project can later copy the file unchanged.
+    pub keep_bytes: bool,
 }
 
 pub enum ExportOutput {
@@ -67,6 +87,14 @@ pub struct Worker {
     latest: Arc<AtomicU64>,
     last_ms: Arc<Mutex<f64>>,
     exports: Mutex<std::collections::HashMap<u64, Arc<AtomicBool>>>,
+    /// Highest autosave sequence written so far (older saves are skipped).
+    /// Also serializes saves with sharing.
+    #[cfg(feature = "native")]
+    saved_seq: Arc<Mutex<u64>>,
+    /// Session folder (outside any project) for image files the project no
+    /// longer uses but the undo history may bring back.
+    #[cfg(feature = "native")]
+    stash: std::path::PathBuf,
     #[cfg(feature = "native")]
     slot: Arc<(Mutex<Option<PreviewJob>>, std::sync::Condvar)>,
 }
@@ -93,6 +121,10 @@ impl Worker {
             latest: Arc::new(AtomicU64::new(0)),
             last_ms: Arc::new(Mutex::new(0.0)),
             exports: Mutex::new(Default::default()),
+            #[cfg(feature = "native")]
+            saved_seq: Arc::new(Mutex::new(0)),
+            #[cfg(feature = "native")]
+            stash: new_stash_dir(),
             #[cfg(feature = "native")]
             slot: Arc::new((Mutex::new(None), std::sync::Condvar::new())),
         });
@@ -206,15 +238,37 @@ impl Worker {
         }));
     }
 
-    pub fn import(self: &Arc<Self>, name: String, bytes: Vec<u8>, token: u64) {
+    /// Decodes an image; without `bytes` it is read from `opts.origin`.
+    pub fn import(self: &Arc<Self>, name: String, bytes: Option<Vec<u8>>, token: u64, opts: ImportOptions) {
         let tx = self.tx.clone();
+        #[cfg(feature = "native")]
+        let stash = self.stash.clone();
         let work = move || {
-            let result = formats::decode(&bytes)
-                .map(|d| {
-                    drop(bytes);
-                    Arc::new(SourceImage::from_rgba8(name.clone(), d.width, d.height, d.rgba))
-                })
-                .map_err(|e| format!("{e:#}"));
+            let result = (|| -> anyhow::Result<Arc<SourceImage>> {
+                #[cfg_attr(not(feature = "native"), allow(unused_mut))]
+                let mut origin = opts.origin;
+                let bytes = match (bytes, &origin) {
+                    (Some(b), _) => b,
+                    (None, Some(path)) => std::fs::read(path)?,
+                    (None, None) => anyhow::bail!("nothing to read"),
+                };
+                let d = formats::decode(&bytes)?;
+                #[cfg(feature = "native")]
+                if origin.is_none() && opts.keep_bytes {
+                    let dir = stash.join("imported");
+                    std::fs::create_dir_all(&dir)?;
+                    let path = dir.join(format!("{token}-{}", crate::project::sanitize_name(&name)));
+                    std::fs::write(&path, &bytes)?;
+                    origin = Some(path);
+                }
+                drop(bytes);
+                let img = SourceImage::from_rgba8(name.clone(), d.width, d.height, d.rgba);
+                if let Some(origin) = origin {
+                    img.set_origin(origin);
+                }
+                Ok(Arc::new(img))
+            })()
+            .map_err(|e| format!("{e:#}"));
             let _ = tx.unbounded_send(Msg::Imported { name, result, token });
         };
         run_background(work);
@@ -264,11 +318,91 @@ impl Worker {
         run_background(work);
     }
 
+    /// Creates an empty project at `dir`; the first save copies in the
+    /// images the graph uses.
+    #[cfg(feature = "native")]
+    pub fn create_project(&self, dir: std::path::PathBuf) {
+        let tx = self.tx.clone();
+        run_background(move || {
+            let result = crate::project::Project::create(&dir).map_err(|e| format!("{e:#}"));
+            let _ = tx.unbounded_send(Msg::ProjectCreated { result });
+        });
+    }
+
+    /// Opens a project folder, `project.delos` file or `.delosproject`
+    /// archive (unpacked under `root`).
+    #[cfg(feature = "native")]
+    pub fn open_project(&self, path: std::path::PathBuf, root: std::path::PathBuf) {
+        let tx = self.tx.clone();
+        run_background(move || {
+            let result = crate::project::open(&path, &root).map_err(|e| format!("{e:#}"));
+            let _ = tx.unbounded_send(Msg::ProjectOpened { result });
+        });
+    }
+
+    /// Saves `graph` to the project unless a newer save already ran: makes
+    /// `inputs/` match the graph (see `Project::sync_inputs`; `known` are all
+    /// images the session holds), then writes `project.delos`.
+    #[cfg(feature = "native")]
+    pub fn save_project(&self, project: crate::project::Project, graph: Graph, known: Vec<Arc<SourceImage>>, seq: u64) {
+        let tx = self.tx.clone();
+        let saved = self.saved_seq.clone();
+        let stash = self.stash.clone();
+        run_background(move || {
+            let mut last = saved.lock().unwrap();
+            if *last > seq {
+                return;
+            }
+            let result = (|| -> anyhow::Result<()> {
+                project.sync_inputs(&graph, &known, &stash)?;
+                let text = crate::expr::to_text(&graph).map_err(|e| anyhow::anyhow!(e))?;
+                if std::fs::read_to_string(project.file()).ok().as_deref() != Some(text.as_str()) {
+                    project.save_text(&text)?;
+                }
+                Ok(())
+            })()
+            .map_err(|e| format!("{e:#}"));
+            *last = seq;
+            drop(last);
+            let _ = tx.unbounded_send(Msg::ProjectSaved { seq, result });
+        });
+    }
+
+    #[cfg(feature = "native")]
+    pub fn share_project(&self, project: crate::project::Project, dest: std::path::PathBuf) {
+        let tx = self.tx.clone();
+        let saved = self.saved_seq.clone();
+        run_background(move || {
+            // Waits for a save in progress, so the archive is consistent.
+            let _lock = saved.lock().unwrap();
+            let result = project.share(&dest).map(|_| dest.display().to_string()).map_err(|e| format!("{e:#}"));
+            let _ = tx.unbounded_send(Msg::ProjectShared { result });
+        });
+    }
+
     pub fn cancel_export(&self, id: u64) {
         if let Some(f) = self.exports.lock().unwrap().get(&id) {
             f.store(true, Ordering::Relaxed);
         }
     }
+}
+
+/// A fresh per-session stash folder in the system temp directory. Stashes
+/// left by earlier sessions more than a day old are removed.
+#[cfg(feature = "native")]
+fn new_stash_dir() -> std::path::PathBuf {
+    let base = std::env::temp_dir().join("delos-stash");
+    if let Ok(entries) = std::fs::read_dir(&base) {
+        let day = std::time::Duration::from_secs(24 * 3600);
+        for e in entries.flatten() {
+            let old = e.metadata().and_then(|m| m.modified()).ok().and_then(|t| t.elapsed().ok()).is_some_and(|age| age > day);
+            if old {
+                let _ = std::fs::remove_dir_all(e.path());
+            }
+        }
+    }
+    static N: AtomicU64 = AtomicU64::new(0);
+    base.join(format!("{}-{}-{}", std::process::id(), now_ms() as u64, N.fetch_add(1, Ordering::Relaxed)))
 }
 
 fn run_background(work: impl FnOnce() + Send + 'static) {

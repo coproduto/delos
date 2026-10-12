@@ -160,3 +160,77 @@ pub fn deliver_bytes(name: &str, mime: &str, bytes: &[u8]) -> Result<String, Str
 pub async fn device_pixel_ratio() -> f64 {
     document::eval("return window.devicePixelRatio || 1;").join::<f64>().await.unwrap_or(1.0).clamp(0.5, 4.0)
 }
+
+/// Whether native file and folder pickers are available.
+pub const HAS_PICKERS: bool = cfg!(feature = "desktop");
+
+/// Asks for a `.delosproject` archive or a `project.delos` file.
+#[cfg(feature = "native")]
+pub async fn pick_project_file() -> Option<std::path::PathBuf> {
+    #[cfg(feature = "desktop")]
+    {
+        let dialog = rfd::AsyncFileDialog::new().set_title("Import project").add_filter("Delos project", &[crate::project::ARCHIVE_EXT, "delos"]);
+        dialog.pick_file().await.map(|h| h.path().to_path_buf())
+    }
+    #[cfg(not(feature = "desktop"))]
+    None
+}
+
+#[cfg(feature = "native")]
+pub async fn pick_folder(title: &str) -> Option<std::path::PathBuf> {
+    #[cfg(feature = "desktop")]
+    {
+        rfd::AsyncFileDialog::new().set_title(title).pick_folder().await.map(|h| h.path().to_path_buf())
+    }
+    #[cfg(not(feature = "desktop"))]
+    {
+        let _ = title;
+        None
+    }
+}
+
+/// Asks where to write a file; `None` when cancelled.
+#[cfg(feature = "native")]
+pub async fn pick_save_path(title: &str, file_name: &str, filter: &str, ext: &str) -> Option<std::path::PathBuf> {
+    match choose_save_target_titled(title, file_name, &[ext], filter).await {
+        SaveTarget::Path(p) => Some(p),
+        _ => None,
+    }
+}
+
+#[cfg(feature = "native")]
+async fn choose_save_target_titled(title: &str, file_name: &str, ext: &[&str], filter: &str) -> SaveTarget {
+    #[cfg(feature = "desktop")]
+    {
+        match rfd::AsyncFileDialog::new().set_title(title).set_file_name(file_name).add_filter(filter, ext).save_file().await {
+            Some(h) => SaveTarget::Path(h.path().to_path_buf()),
+            None => SaveTarget::Cancelled,
+        }
+    }
+    #[cfg(not(feature = "desktop"))]
+    {
+        let _ = title;
+        choose_save_target(file_name, ext, filter).await
+    }
+}
+
+/// Asks the user to confirm a destructive action (always yes where no
+/// native dialog exists).
+pub async fn confirm(title: &str, text: &str) -> bool {
+    #[cfg(feature = "desktop")]
+    {
+        let r = rfd::AsyncMessageDialog::new()
+            .set_title(title)
+            .set_description(text)
+            .set_level(rfd::MessageLevel::Warning)
+            .set_buttons(rfd::MessageButtons::OkCancel)
+            .show()
+            .await;
+        matches!(r, rfd::MessageDialogResult::Ok)
+    }
+    #[cfg(not(feature = "desktop"))]
+    {
+        let _ = (title, text);
+        true
+    }
+}

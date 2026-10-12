@@ -11,9 +11,15 @@ thread_local! {
     static DONE: Cell<bool> = const { Cell::new(false) };
 }
 
-#[derive(Props, Clone, PartialEq)]
+#[derive(Props, Clone)]
 struct HarnessProps {
     run: fn(App),
+}
+
+impl PartialEq for HarnessProps {
+    fn eq(&self, _: &Self) -> bool {
+        false
+    }
 }
 
 #[allow(non_snake_case)]

@@ -55,6 +55,12 @@ pub struct SizeConflict {
     pub b: (usize, Size),
 }
 
+impl std::fmt::Debug for Graph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Graph({} nodes, {} images)", self.nodes.len(), self.images.len())
+    }
+}
+
 impl Default for Graph {
     fn default() -> Self {
         Self::new()
@@ -87,8 +93,13 @@ impl Graph {
     }
 
     pub fn add_node(&mut self, kind: &str, pos: (f64, f64)) -> NodeId {
-        let k = nodes::kind(kind).unwrap_or_else(|| panic!("unknown node kind {kind}"));
         let pos = self.free_position(pos);
+        self.add_node_at(kind, pos)
+    }
+
+    /// Adds a node at exactly `pos` (used when loading saved graphs).
+    pub fn add_node_at(&mut self, kind: &str, pos: (f64, f64)) -> NodeId {
+        let k = nodes::kind(kind).unwrap_or_else(|| panic!("unknown node kind {kind}"));
         let id = self.fresh_id();
         let node = Node { id, kind: k.id(), params: nodes::default_params(k), inputs: vec![None; k.inputs().len()], pos, label: None };
         self.nodes.insert(id, node);

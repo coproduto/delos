@@ -8,7 +8,7 @@ default = ["desktop"]
 desktop = ["dioxus/desktop", "native", "gpu", "rembg", "dep:rfd"]
 mobile = ["dioxus/mobile", "native", "gpu"]
 web = ["dioxus/web", "dep:web-sys", "dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
-native = []
+native = ["dep:zip"]
 gpu = ["dep:wgpu", "dep:pollster"]
 rembg = ["dep:rembg-rs", "dep:ort"]
 
@@ -32,8 +32,12 @@ web-sys = { version = "0.3", optional = true, features = ["Blob", "BlobPropertyB
 js-sys = { version = "0.3", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
+zip = { version = "9.0.2", default-features = false, features = ["deflate"], optional = true }
 
 [dev-dependencies]
+tempfile = "3.27.0"
+tokio = { version = "1.53.2", features = ["rt", "time", "macros"] }
+zip = { version = "9.0.2", default-features = false, features = ["deflate"] }
 
 [profile.dev.package."*"]
 opt-level = 3

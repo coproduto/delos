@@ -2,7 +2,8 @@
 //! input pickers, and the layer-stack editor.
 
 use super::state::{fmt_size, App, ImportTarget};
-use super::{dialogs, start_import, WorkerHandle};
+use super::session::{self, ImportSource};
+use super::{dialogs, WorkerHandle};
 use crate::engine::geom::Size;
 use crate::formats;
 use crate::graph::NodeId;
@@ -469,7 +470,10 @@ fn LayerStack(head: NodeId) -> Element {
                         multiple: true,
                         accept: "{accept}",
                         style: "display:none",
-                        onchange: move |e: FormEvent| start_import(app, worker.clone(), e.files(), ImportTarget::StackLayer(head)),
+                        onchange: move |e: FormEvent| {
+                            let files = e.files().into_iter().map(ImportSource::File).collect();
+                            session::import(app, worker.clone(), files, ImportTarget::StackLayer(head))
+                        },
                     }
                     "+ Image layer"
                 }

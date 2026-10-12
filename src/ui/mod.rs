@@ -5,6 +5,7 @@ mod graph_view;
 mod image_view;
 mod inspector;
 pub mod platform;
+pub mod session;
 pub mod state;
 
 use crate::formats;
@@ -12,6 +13,7 @@ use crate::nodes::{self, ids, Category, Value};
 use crate::worker::{ExportOutput, Msg, Worker};
 use dioxus::prelude::*;
 use futures_util::StreamExt;
+use session::{ImportSource, Session};
 use state::{App, Busy, FrameView, ImportTarget, Layout};
 use std::sync::Arc;
 
@@ -35,18 +37,37 @@ pub fn launch() {
     dioxus::launch(Root);
 }
 
-#[component]
-fn Root() -> Element {
+/// Creates the application state and background worker, applies worker
+/// messages and autosaves projects. Used by the root component (and by the
+/// end-to-end tests, which run without a window).
+pub fn use_services() -> (App, WorkerHandle) {
     let app = use_context_provider(App::new);
     let worker = use_hook(|| {
         let (w, rx) = Worker::new();
         let mut backend = app.backend;
         backend.set(w.backend_name());
-        spawn(pump(app, rx));
-        WorkerHandle(w)
+        let handle = WorkerHandle(w);
+        spawn(pump(app, handle.clone(), rx));
+        handle
     });
     use_context_provider(|| worker.clone());
+    session::use_autosave(app, worker.clone());
+    (app, worker)
+}
+
+#[component]
+fn Root() -> Element {
+    let (app, worker) = use_services();
     platform::use_frame_server();
+    #[cfg(feature = "desktop")]
+    use_effect(move || {
+        let title = match &*app.session.read() {
+            Session::Project(p) => format!("{} — Delos", p.name()),
+            Session::Quick => "Quick mode — Delos".into(),
+            Session::Fresh => "Delos".into(),
+        };
+        dioxus::desktop::window().set_title(&title);
+    });
 
     let layout = *app.layout.read();
     let main_class = match layout {
@@ -67,7 +88,19 @@ fn Root() -> Element {
                 move |e: DragEvent| {
                     e.prevent_default();
                     let files = e.data_transfer().files();
-                    start_import(app, worker.clone(), files, ImportTarget::Output);
+                    // A dropped project (folder, project.delos or archive) is opened.
+                    #[cfg(feature = "desktop")]
+                    if let Some(path) = files.iter().map(|f| f.path()).find(|p| is_project_path(p)) {
+                        let worker = worker.clone();
+                        spawn(async move {
+                            if !session::has_unsaved_work(&app) || platform::confirm("Open project", "Discard the current quick-mode work and open the project?").await {
+                                session::open_project(app, worker, path);
+                            }
+                        });
+                        return;
+                    }
+                    let files = files.into_iter().map(ImportSource::File).collect();
+                    session::import(app, worker.clone(), files, ImportTarget::Output);
                 }
             },
             Toolbar {}
@@ -82,15 +115,19 @@ fn Root() -> Element {
                 }
                 inspector::Inspector {}
             }
+            Footer {}
             dialogs::ConflictDialog {}
             dialogs::ExportDialog {}
+            dialogs::ProjectDialog {}
             Toast {}
         }
     }
 }
 
 /// Applies worker messages to the UI state.
-async fn pump(mut app: App, mut rx: futures_channel::mpsc::UnboundedReceiver<Msg>) {
+async fn pump(mut app: App, worker: WorkerHandle, mut rx: futures_channel::mpsc::UnboundedReceiver<Msg>) {
+    #[cfg(not(feature = "native"))]
+    let _ = &worker;
     while let Some(msg) = rx.next().await {
         let latest = *app.seq.peek();
         match msg {
@@ -180,31 +217,35 @@ async fn pump(mut app: App, mut rx: futures_channel::mpsc::UnboundedReceiver<Msg
                     app.toast(msg, false);
                 }
             }
+            #[cfg(feature = "native")]
+            Msg::ProjectCreated { result } => session::on_project_created(app, worker.clone(), result),
+            #[cfg(feature = "native")]
+            Msg::ProjectOpened { result } => session::on_project_opened(app, result),
+            #[cfg(feature = "native")]
+            Msg::ProjectSaved { seq: _, result } => {
+                // Saves are written in order; any result is the latest state.
+                app.save_state.set(match result {
+                    Ok(()) => session::SaveState::Saved,
+                    Err(e) => session::SaveState::Failed(e),
+                });
+            }
+            #[cfg(feature = "native")]
+            Msg::ProjectShared { result } => {
+                app.project_busy.set(None);
+                match result {
+                    Ok(path) => app.toast(format!("Project shared as {path}"), false),
+                    Err(e) => app.toast(format!("Could not share the project: {e}"), true),
+                }
+            }
         }
     }
 }
 
-static IMPORT_TOKEN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-
-pub fn start_import(mut app: App, worker: WorkerHandle, files: Vec<dioxus::html::FileData>, target: ImportTarget) {
-    for f in files {
-        let worker = worker.clone();
-        *app.importing.write() += 1;
-        spawn(async move {
-            let name = f.name();
-            match f.read_bytes().await {
-                Ok(bytes) => {
-                    let token = IMPORT_TOKEN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    app.imports.write().insert(token, target);
-                    worker.0.import(name, bytes.to_vec(), token);
-                }
-                Err(e) => {
-                    *app.importing.write() -= 1;
-                    app.toast(format!("Could not read {name}: {e}"), true);
-                }
-            }
-        });
-    }
+/// A folder, `project.delos` file or `.delosproject` archive.
+#[cfg(feature = "desktop")]
+fn is_project_path(p: &std::path::Path) -> bool {
+    use crate::project::{ARCHIVE_EXT, PROJECT_FILE};
+    p.is_dir() || p.extension().is_some_and(|e| e == ARCHIVE_EXT) || p.file_name().is_some_and(|n| n == PROJECT_FILE)
 }
 
 fn finish_import(mut app: App, img: Arc<crate::engine::source::SourceImage>, target: ImportTarget) {
@@ -252,6 +293,7 @@ fn on_key(app: App, e: KeyboardEvent) {
         Key::Character(c) if cmd && c == "y" => app.redo(),
         Key::Character(c) if cmd && c == "e" => dialogs::open_export(app, None),
         Key::Delete | Key::Backspace => app.delete_selection(),
+        Key::Escape if app.project_prompt.peek().is_some() && app.project_busy.peek().is_none() => session::cancel_prompt(app),
         Key::Escape => {
             let closable = app.export.peek().as_ref().map(|s| s.running.is_none());
             match closable {
@@ -308,7 +350,10 @@ fn Toolbar() -> Element {
                     style: "display:none",
                     onchange: {
                         let worker = worker.clone();
-                        move |e: FormEvent| start_import(app, worker.clone(), e.files(), ImportTarget::Output)
+                        move |e: FormEvent| {
+                            let files = e.files().into_iter().map(ImportSource::File).collect();
+                            session::import(app, worker.clone(), files, ImportTarget::Output)
+                        }
                     },
                 }
                 "Import"
@@ -335,6 +380,9 @@ fn Toolbar() -> Element {
                         div { class: "menu-hint", "New nodes are inserted after the selected node." }
                     }
                 }
+            }
+            if session::PROJECTS_SUPPORTED {
+                ProjectMenu {}
             }
             button {
                 class: "btn",
@@ -406,5 +454,136 @@ fn Toast() -> Element {
     let key = format!("{}{}", msg.len(), msg.chars().take(12).collect::<String>());
     rsx! {
         div { key: "{key}", class: "{cls}", onclick: move |_| app.toast.set(None), "{msg}" }
+    }
+}
+
+#[component]
+fn ProjectMenu() -> Element {
+    let app = use_context::<App>();
+    let worker = use_context::<WorkerHandle>();
+    let mut open = use_signal(|| false);
+    let session = app.session.read().clone();
+    let in_project = session.project().is_some();
+    let busy = app.project_busy.read().is_some();
+
+    #[cfg(feature = "native")]
+    let w_open = worker.clone();
+    #[cfg(feature = "native")]
+    let open_with = move |pick: fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<std::path::PathBuf>>>>| {
+        let worker = w_open.clone();
+        move |_| {
+            open.set(false);
+            let worker = worker.clone();
+            spawn(async move {
+                let Some(path) = pick().await else { return };
+                if session::has_unsaved_work(&app) && !platform::confirm("Open project", "Discard the current quick-mode work and open the project?").await {
+                    return;
+                }
+                session::open_project(app, worker, path);
+            });
+        }
+    };
+    #[cfg(feature = "native")]
+    let import_file = open_with(|| Box::pin(platform::pick_project_file()));
+    #[cfg(feature = "native")]
+    let import_folder = open_with(|| Box::pin(platform::pick_folder("Open project folder")));
+    #[cfg(feature = "native")]
+    let share = {
+        let worker = worker.clone();
+        move |_| {
+            open.set(false);
+            let worker = worker.clone();
+            let name = session::share_file_name(&app);
+            spawn(async move {
+                if let Some(dest) = platform::pick_save_path("Share project", &name, "Delos project", crate::project::ARCHIVE_EXT).await {
+                    session::share_project(app, worker, dest);
+                }
+            });
+        }
+    };
+    #[cfg(not(feature = "native"))]
+    let (import_file, import_folder, share) = {
+        let _ = &worker;
+        (|_| {}, |_| {}, |_| {})
+    };
+    let close = move |_| {
+        open.set(false);
+        spawn(async move {
+            if session::has_unsaved_work(&app) && !platform::confirm("Discard quick-mode work", "Close the quick session? Its work is not saved anywhere.").await {
+                return;
+            }
+            session::close_session(app);
+        });
+    };
+
+    rsx! {
+        div { class: "menu-wrap",
+            button { class: "btn", disabled: busy, onclick: move |_| open.toggle(), "Project ▾" }
+            if open() {
+                div { class: "menu-backdrop", onclick: move |_| open.set(false) }
+                div { class: "menu",
+                    button {
+                        class: "menu-item",
+                        title: "Save the current work as a project folder (images are copied into it)",
+                        onclick: move |_| {
+                            open.set(false);
+                            session::prompt_new_project(app);
+                        },
+                        if in_project { "Save as new project…" } else { "New project from current work…" }
+                    }
+                    if platform::HAS_PICKERS {
+                        button { class: "menu-item", title: "Open a .delosproject file or a project.delos file", onclick: import_file, "Import project…" }
+                        button { class: "menu-item", title: "Open a project folder in place", onclick: import_folder, "Open project folder…" }
+                        button {
+                            class: "menu-item",
+                            disabled: !in_project,
+                            title: "Save the project as a .delosproject file to share with others",
+                            onclick: share,
+                            "Share project…"
+                        }
+                    }
+                    if session != Session::Fresh {
+                        div { class: "menu-sep" }
+                        button { class: "menu-item", onclick: close, if in_project { "Close project" } else { "End quick session" } }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Bottom bar: whether this is a quick session or a project, and its save
+/// state.
+#[component]
+fn Footer() -> Element {
+    let app = use_context::<App>();
+    let session = app.session.read().clone();
+    let save = app.save_state.read().clone();
+    let busy = app.project_busy.read().clone();
+    let (chip, cls, detail) = match &session {
+        Session::Fresh => ("No project", "mode fresh", if session::PROJECTS_SUPPORTED { "Importing an image asks whether to start a project.".to_string() } else { String::new() }),
+        Session::Quick => ("Quick mode", "mode quick", "Edits are not saved; images are used where they are.".to_string()),
+        #[cfg(feature = "native")]
+        Session::Project(p) => ("Project", "mode project", format!("{} · {}", p.name(), p.dir.display())),
+    };
+    let save_text = match save {
+        _ if session.project().is_none() => None,
+        session::SaveState::Saving => Some(("Saving…".to_string(), "save")),
+        session::SaveState::Saved => Some(("All changes saved".to_string(), "save ok")),
+        session::SaveState::Failed(e) => Some((format!("Not saved: {e}"), "save error")),
+        session::SaveState::Idle => None,
+    };
+    rsx! {
+        div { class: "footer",
+            span { class: "{cls}", "{chip}" }
+            span { class: "footer-detail", title: "{detail}", "{detail}" }
+            div { class: "spacer" }
+            if let Some(b) = busy {
+                span { class: "importing", span { class: "spinner small" } "{b}" }
+            }
+            if let Some((t, c)) = save_text {
+                span { class: "{c}", title: "{t}", "{t}" }
+            }
+        }
     }
 }

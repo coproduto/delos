@@ -127,6 +127,13 @@ pub struct App {
     pub importing: Signal<u32>,
     pub seq: Signal<u64>,
     pub backend: Signal<String>,
+    pub session: Signal<super::session::Session>,
+    pub save_state: Signal<super::session::SaveState>,
+    pub project_prompt: Signal<Option<super::session::ProjectPrompt>>,
+    /// A project is being created or opened in the background.
+    pub project_busy: Signal<Option<String>>,
+    /// Where new projects (and imported `.delosproject` files) go.
+    pub projects_root: Signal<std::path::PathBuf>,
 }
 
 const HISTORY_LIMIT: usize = 60;
@@ -156,6 +163,11 @@ impl App {
             importing: Signal::new(0),
             seq: Signal::new(0),
             backend: Signal::new(String::new()),
+            session: Signal::new(Default::default()),
+            save_state: Signal::new(Default::default()),
+            project_prompt: Signal::new(None),
+            project_busy: Signal::new(None),
+            projects_root: Signal::new(super::session::default_projects_root()),
         }
     }
 
@@ -209,6 +221,39 @@ impl App {
 
     pub fn can_redo(&self) -> bool {
         !self.history.read().redo.is_empty()
+    }
+
+    /// Every image held by the document or its undo history.
+    pub fn all_images(&self) -> Vec<std::sync::Arc<crate::engine::source::SourceImage>> {
+        let mut seen = HashSet::new();
+        let mut out = Vec::new();
+        let g = self.graph.peek();
+        let h = self.history.peek();
+        for graph in std::iter::once(&*g).chain(h.undo.iter()).chain(h.redo.iter()) {
+            for img in graph.images.values() {
+                if seen.insert(std::sync::Arc::as_ptr(img)) {
+                    out.push(img.clone());
+                }
+            }
+        }
+        out
+    }
+
+    /// Starts over with `graph` (opening or closing a project): clears the
+    /// history, selection and per-document view state.
+    pub fn replace_document(mut self, graph: Graph) {
+        self.graph.set(graph);
+        self.history.set(History::default());
+        self.selected.set(None);
+        self.selected_edge.set(None);
+        self.pinned.set(None);
+        self.errors.write().clear();
+        self.global_error.set(None);
+        self.conflict.set(None);
+        self.ignored_conflicts.write().clear();
+        self.canvas_user_set.set(false);
+        self.view.write().fit = true;
+        self.after_edit();
     }
 
     pub fn undo(mut self) {

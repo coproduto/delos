@@ -1,4 +1,5 @@
 use super::platform::{self, SaveTarget};
+use super::session;
 use super::state::{fmt_size, App, ExportState};
 use super::WorkerHandle;
 use crate::formats::{self, EncodeOptions};
@@ -214,6 +215,113 @@ pub fn ExportDialog() -> Element {
                     } else {
                         button { class: "btn primary", onclick: start, "Export…" }
                         button { class: "btn", onclick: move |_| app.export.set(None), "Close" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// "Start a project?" (on the first import) or "New project".
+#[component]
+pub fn ProjectDialog() -> Element {
+    #[cfg_attr(not(feature = "native"), allow(unused_mut))]
+    let mut app = use_context::<App>();
+    let worker = use_context::<WorkerHandle>();
+    let Some(prompt) = app.project_prompt.read().clone() else { return rsx! {} };
+    let busy = app.project_busy.read().is_some();
+    let from_import = !prompt.pending.is_empty();
+    let n = prompt.pending.len();
+    let dir = prompt.parent.join(prompt.name.trim());
+    let w_quick = worker.clone();
+    let w_create = worker.clone();
+    let count = if n == 1 { "this image".to_string() } else { format!("these {n} images") };
+
+    rsx! {
+        div { class: "modal-backdrop",
+            div { class: "modal project-modal",
+                div { class: "modal-header",
+                    h3 { if from_import { "Start a project?" } else { "New project" } }
+                    if !busy {
+                        button {
+                            class: "modal-close",
+                            title: "Close (Esc)",
+                            onclick: move |_| session::cancel_prompt(app),
+                            "×"
+                        }
+                    }
+                }
+                p {
+                    "A project keeps your work in a folder you can reopen and share. "
+                    "Every image you import is "
+                    b { "copied" }
+                    " into the project's "
+                    code { "inputs/" }
+                    " folder, so projects take more disk space than the original files."
+                }
+                if from_import {
+                    p { class: "muted", b { "Quick mode" } " opens {count} for one-off editing without saving or copying anything." }
+                } else if app.graph.peek().images.len() > 0 {
+                    p { class: "muted", "The images already in use are copied into the new project." }
+                }
+                div { class: "field",
+                    label { "Project name" }
+                    input {
+                        r#type: "text",
+                        value: "{prompt.name}",
+                        disabled: busy,
+                        oninput: move |e| session::set_prompt_name(app, &e.value()),
+                    }
+                }
+                div { class: "field",
+                    label { "Location" }
+                    div { class: "path-row",
+                        code { class: "path", title: "{dir.display()}", "{dir.display()}" }
+                        if platform::HAS_PICKERS {
+                            button {
+                                class: "btn small",
+                                disabled: busy,
+                                onclick: move |_| {
+                                    #[cfg(feature = "native")]
+                                    spawn(async move {
+                                        if let Some(parent) = platform::pick_folder("Choose where to create the project").await {
+                                            if let Some(p) = app.project_prompt.write().as_mut() {
+                                                p.parent = parent;
+                                                p.error = None;
+                                            }
+                                        }
+                                    });
+                                },
+                                "Change…"
+                            }
+                        }
+                    }
+                }
+                if let Some(e) = &prompt.error {
+                    p { class: "error-box inline", "{e}" }
+                }
+                div { class: "choices horizontal",
+                    if from_import {
+                        button {
+                            class: "btn",
+                            disabled: busy,
+                            title: "Edit without creating a project",
+                            onclick: move |_| session::choose_quick(app, w_quick.clone()),
+                            "Quick mode"
+                        }
+                    } else {
+                        button { class: "btn", disabled: busy, onclick: move |_| session::cancel_prompt(app), "Cancel" }
+                    }
+                    button {
+                        class: "btn primary",
+                        disabled: busy || prompt.name.trim().is_empty(),
+                        onclick: move |_| {
+                            #[cfg(feature = "native")]
+                            session::create_project(app, w_create.clone());
+                            #[cfg(not(feature = "native"))]
+                            let _ = &w_create;
+                        },
+                        if busy { "Creating…" } else { "Create project" }
                     }
                 }
             }

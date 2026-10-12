@@ -17,6 +17,18 @@ pub struct SourceImage {
     pub width: u32,
     pub height: u32,
     levels: Vec<Level>,
+    /// Where the image is stored. Shared by every graph snapshot (undo
+    /// history) holding the image, so all of them stay saveable.
+    file: std::sync::Mutex<ImageFile>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ImageFile {
+    /// Path inside the project (`inputs/…`) when the image belongs to one.
+    pub project: Option<String>,
+    /// The file it was imported from, if known (used to copy it into a
+    /// project later).
+    pub origin: Option<std::path::PathBuf>,
 }
 
 static U8_TO_F32: std::sync::LazyLock<[f32; 256]> = std::sync::LazyLock::new(|| std::array::from_fn(|i| i as f32 / 255.0));
@@ -44,7 +56,23 @@ impl SourceImage {
             let next = downsample(levels.last().unwrap());
             levels.push(next);
         }
-        Self { name: name.into(), width, height, levels }
+        Self { name: name.into(), width, height, levels, file: Default::default() }
+    }
+
+    pub fn file(&self) -> ImageFile {
+        self.file.lock().unwrap().clone()
+    }
+
+    pub fn set_project_file(&self, path: impl Into<String>) {
+        self.file.lock().unwrap().project = Some(path.into());
+    }
+
+    pub fn clear_project_file(&self) {
+        self.file.lock().unwrap().project = None;
+    }
+
+    pub fn set_origin(&self, path: std::path::PathBuf) {
+        self.file.lock().unwrap().origin = Some(path);
     }
 
     pub fn bytes(&self) -> usize {
