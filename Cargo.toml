@@ -1,0 +1,42 @@
+[package]
+name = "delos"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["desktop"]
+desktop = ["dioxus/desktop", "native", "gpu", "rembg", "dep:rfd"]
+mobile = ["dioxus/mobile", "native", "gpu"]
+web = ["dioxus/web", "dep:web-sys", "dep:js-sys", "dep:wasm-bindgen", "dep:wasm-bindgen-futures"]
+native = []
+gpu = ["dep:wgpu", "dep:pollster"]
+rembg = ["dep:rembg-rs", "dep:ort"]
+
+[dependencies]
+dioxus = { version = "0.7", features = [] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "gif", "bmp", "ico", "tiff", "rayon"] }
+png = "0.18"
+rayon = "1"
+rustfft = "6"
+anyhow = "1"
+bytemuck = { version = "1", features = ["derive"] }
+futures-channel = "0.3"
+futures-util = "0.3"
+wgpu = { version = "30", optional = true }
+pollster = { version = "0.4", optional = true }
+rembg-rs = { version = "0.1.4", optional = true }
+# rembg-rs 0.1.4 only builds against this ort prerelease.
+ort = { version = "=2.0.0-rc.10", optional = true }
+rfd = { version = "0.15", optional = true }
+web-sys = { version = "0.3", optional = true, features = ["Blob", "BlobPropertyBag", "Url", "Window", "Document", "HtmlAnchorElement", "HtmlElement", "Performance"] }
+js-sys = { version = "0.3", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+
+[dev-dependencies]
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = 3

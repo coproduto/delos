@@ -1,0 +1,6 @@
+[application]
+name = "delos"
+default_platform = "desktop"
+
+[web.app]
+title = "Delos"
