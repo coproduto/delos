@@ -2,7 +2,7 @@
 //! at any scale in time proportional to the *output* size.
 
 use super::geom::{Request, Sampling};
-use super::tile::{CpuTile, CLEAR};
+use super::tile::CpuTile;
 use rayon::prelude::*;
 
 /// One pyramid level: premultiplied RGBA8, row-major.
@@ -109,44 +109,71 @@ impl SourceImage {
         let kx = lv.w as f64 / iw;
         let ky = lv.h as f64 / ih;
         let r = req.region;
-        let fetch = |x: i64, y: i64| -> [f32; 4] {
-            let x = x.clamp(0, lv.w as i64 - 1) as usize;
-            let y = y.clamp(0, lv.h as i64 - 1) as usize;
-            let o = (y * lv.w as usize + x) * 4;
-            let d = &lv.data[o..o + 4];
+        let bilinear = level > 0;
+        // The grid is separable: work out where each column and each row
+        // samples the level once, rather than per pixel.
+        let cols: Vec<Tap> = (0..req.width).map(|i| Tap::new(r.x + (i as f64 + 0.5) * sx, iw, kx, lv.w, bilinear)).collect();
+        let mut t = CpuTile::new(req.width, req.height);
+        let lw = lv.w as usize * 4;
+        if req.width == 0 {
+            return t;
+        }
+        let px = |row: &[u8], i: usize| -> [f32; 4] {
+            let d = &row[i * 4..i * 4 + 4];
             [lut[d[0] as usize], lut[d[1] as usize], lut[d[2] as usize], lut[d[3] as usize]]
         };
-        let bilinear = level > 0;
-        CpuTile::from_fn_par(req.width, req.height, |i, j| {
-            let nx = r.x + (i as f64 + 0.5) * sx;
-            let ny = r.y + (j as f64 + 0.5) * sy;
-            if nx < 0.0 || ny < 0.0 || nx >= iw || ny >= ih {
-                return CLEAR;
+        t.data.par_chunks_mut(req.width as usize).enumerate().for_each(|(j, out)| {
+            let row = Tap::new(r.y + (j as f64 + 0.5) * sy, ih, ky, lv.h, bilinear);
+            if row.outside {
+                return; // tiles start transparent
             }
-            let u = nx * kx;
-            let v = ny * ky;
-            if !bilinear {
-                return fetch(u as i64, v as i64);
+            let r0 = &lv.data[row.i0 * lw..][..lw];
+            let r1 = &lv.data[row.i1 * lw..][..lw];
+            for (o, c) in out.iter_mut().zip(&cols) {
+                if c.outside {
+                    continue;
+                }
+                if !bilinear {
+                    *o = px(r0, c.i0);
+                    continue;
+                }
+                let (a, b, cc, d) = (px(r0, c.i0), px(r0, c.i1), px(r1, c.i0), px(r1, c.i1));
+                for k in 0..4 {
+                    let t = a[k] + (b[k] - a[k]) * c.f;
+                    let bt = cc[k] + (d[k] - cc[k]) * c.f;
+                    o[k] = t + (bt - t) * row.f;
+                }
             }
-            let x = u - 0.5;
-            let y = v - 0.5;
-            let x0 = x.floor();
-            let y0 = y.floor();
-            let fx = (x - x0) as f32;
-            let fy = (y - y0) as f32;
-            let (x0, y0) = (x0 as i64, y0 as i64);
-            let a = fetch(x0, y0);
-            let b = fetch(x0 + 1, y0);
-            let c = fetch(x0, y0 + 1);
-            let d = fetch(x0 + 1, y0 + 1);
-            let mut o = [0.0; 4];
-            for k in 0..4 {
-                let t = a[k] + (b[k] - a[k]) * fx;
-                let bt = c[k] + (d[k] - c[k]) * fx;
-                o[k] = t + (bt - t) * fy;
-            }
-            o
-        })
+        });
+        t
+    }
+}
+
+/// Where one output column (or row) samples a pyramid level: the texels to
+/// interpolate between and the weight of the second.
+struct Tap {
+    outside: bool,
+    i0: usize,
+    i1: usize,
+    f: f32,
+}
+
+impl Tap {
+    /// `n` is the pixel center in node space, `size` the image's size and `k`
+    /// the scale to the level's `len` texels.
+    fn new(n: f64, size: f64, k: f64, len: u32, bilinear: bool) -> Self {
+        let outside = n < 0.0 || n >= size;
+        let clamp = |i: i64| i.clamp(0, len as i64 - 1) as usize;
+        let u = n * k;
+        if !bilinear {
+            let i = clamp(u as i64);
+            return Tap { outside, i0: i, i1: i, f: 0.0 };
+        }
+        let x = u - 0.5;
+        let x0 = x.floor();
+        let f = (x - x0) as f32;
+        let x0 = x0 as i64;
+        Tap { outside, i0: clamp(x0), i1: clamp(x0 + 1), f }
     }
 }
 
