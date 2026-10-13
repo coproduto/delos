@@ -10,6 +10,7 @@
 //! compiles it lazily on first use.
 
 use super::tile::{clamp_premul, premul, unpremul, CpuTile, Px, SampleMode, CLEAR};
+use rayon::prelude::*;
 
 pub const MAX_INPUTS: usize = 3;
 pub const MAX_PARAMS: usize = 32;
@@ -19,7 +20,30 @@ pub struct Kernel {
     pub inputs: usize,
     /// WGSL source defining `fn kernel(p: vec2<f32>) -> vec4<f32>`.
     pub wgsl: &'static str,
-    pub cpu: fn(&Env, f32, f32) -> Px,
+    /// CPU version, called once per output row.
+    pub cpu: fn(&Env, Row),
+}
+
+/// One output row handed to a CPU kernel. Inputs arrive already sampled at
+/// the row's pixel centers, so kernels index them like the output and the
+/// per-pixel code inlines into a tight loop.
+pub struct Row<'a> {
+    /// Pixel-center y of the row.
+    pub y: f32,
+    /// Input `N` at each pixel of the row (transparent when absent).
+    pub s: [&'a [Px]; MAX_INPUTS],
+    pub out: &'a mut [Px],
+}
+
+impl Row<'_> {
+    /// Sets each pixel to `f(i, x, y)`, given its index and pixel center.
+    #[inline(always)]
+    pub fn fill(self, f: impl Fn(usize, f32, f32) -> Px) {
+        let y = self.y;
+        for (i, px) in self.out.iter_mut().enumerate() {
+            *px = f(i, i as f32 + 0.5, y);
+        }
+    }
 }
 
 pub struct EnvInput<'a> {
@@ -35,15 +59,35 @@ pub struct Env<'a> {
     pub p: [f32; MAX_PARAMS],
 }
 
-impl Env<'_> {
-    #[inline]
-    pub fn s(&self, i: usize, px: f32, py: f32) -> Px {
-        let Some(inp) = self.inputs.get(i) else { return CLEAR };
-        let Some(tile) = inp.tile else { return CLEAR };
-        let m = inp.map;
-        tile.sample(inp.mode, m[0] * px + m[1], m[2] * py + m[3])
+impl EnvInput<'_> {
+    /// Row `j` of the tile as-is, when this input is sampled exactly on the
+    /// output grid (nearest, identity map) and covers the whole row.
+    fn aligned_row(&self, j: usize, w: usize) -> Option<&[Px]> {
+        let t = self.tile?;
+        let aligned = self.mode == SampleMode::Nearest && self.map == [1.0, 0.0, 1.0, 0.0];
+        (aligned && t.w as usize >= w && j < t.h as usize).then(|| &t.data[j * t.w as usize..][..w])
     }
 
+    /// Samples the row with pixel-center y `py` into `out`.
+    fn sample_row(&self, tile: &CpuTile, py: f32, out: &mut [Px]) {
+        let m = self.map;
+        let v = m[2] * py + m[3];
+        #[inline(always)]
+        fn row(out: &mut [Px], m: [f32; 4], f: impl Fn(f32) -> Px) {
+            for (i, px) in out.iter_mut().enumerate() {
+                *px = f(m[0] * (i as f32 + 0.5) + m[1]);
+            }
+        }
+        // One loop per mode, so the mode match is hoisted out of the loop.
+        match self.mode {
+            SampleMode::Nearest => row(out, m, |u| tile.sample(SampleMode::Nearest, u, v)),
+            SampleMode::Bilinear => row(out, m, |u| tile.sample(SampleMode::Bilinear, u, v)),
+            SampleMode::Bicubic => row(out, m, |u| tile.sample(SampleMode::Bicubic, u, v)),
+        }
+    }
+}
+
+impl Env<'_> {
     #[inline]
     pub fn node(&self, px: f32, py: f32) -> (f32, f32) {
         let m = self.node_map;
@@ -165,16 +209,19 @@ pub const RESAMPLE: Kernel = Kernel {
     name: "resample",
     inputs: 1,
     wgsl: "fn kernel(p: vec2<f32>) -> vec4<f32> { return s0(p); }",
-    cpu: |e, x, y| e.s(0, x, y),
+    cpu: |_, r| r.out.copy_from_slice(r.s[0]),
 };
 
 pub const INVERT: Kernel = Kernel {
     name: "invert",
     inputs: 1,
     wgsl: "fn kernel(p: vec2<f32>) -> vec4<f32> { let c = s0(p); return vec4<f32>(vec3<f32>(c.a) - c.rgb, c.a); }",
-    cpu: |e, x, y| {
-        let c = e.s(0, x, y);
-        [c[3] - c[0], c[3] - c[1], c[3] - c[2], c[3]]
+    cpu: |_, r| {
+        let [s0, ..] = r.s;
+        r.fill(|i, _, _| {
+            let c = s0[i];
+            [c[3] - c[0], c[3] - c[1], c[3] - c[2], c[3]]
+        })
     },
 };
 
@@ -183,11 +230,14 @@ pub const OVER: Kernel = Kernel {
     name: "over",
     inputs: 2,
     wgsl: "fn kernel(p: vec2<f32>) -> vec4<f32> { let f = s0(p); let b = s1(p); return f + b * (1.0 - f.a); }",
-    cpu: |e, x, y| {
-        let f = e.s(0, x, y);
-        let b = e.s(1, x, y);
-        let k = 1.0 - f[3];
-        [f[0] + b[0] * k, f[1] + b[1] * k, f[2] + b[2] * k, f[3] + b[3] * k]
+    cpu: |_, r| {
+        let [s0, s1, ..] = r.s;
+        r.fill(|i, _, _| {
+            let f = s0[i];
+            let b = s1[i];
+            let k = 1.0 - f[3];
+            [f[0] + b[0] * k, f[1] + b[1] * k, f[2] + b[2] * k, f[3] + b[3] * k]
+        })
     },
 };
 
@@ -201,13 +251,16 @@ pub const MASK: Kernel = Kernel {
         if (P(0u) > 0.5) { m = 1.0 - m; }
         return s0(p) * m;
     }"#,
-    cpu: |e, x, y| {
-        let mut m = e.s(1, x, y)[0].clamp(0.0, 1.0);
-        if e.p[0] > 0.5 {
-            m = 1.0 - m;
-        }
-        let c = e.s(0, x, y);
-        [c[0] * m, c[1] * m, c[2] * m, c[3] * m]
+    cpu: |e, r| {
+        let [s0, s1, ..] = r.s;
+        r.fill(|i, _, _| {
+            let mut m = s1[i][0].clamp(0.0, 1.0);
+            if e.p[0] > 0.5 {
+                m = 1.0 - m;
+            }
+            let c = s0[i];
+            [c[0] * m, c[1] * m, c[2] * m, c[3] * m]
+        })
     },
 };
 
@@ -224,10 +277,13 @@ pub const SPLIT: Kernel = Kernel {
         if (inside == (P(4u) < 0.5)) { return s0(p); }
         return vec4<f32>(0.0);
     }"#,
-    cpu: |e, x, y| {
-        let (nx, ny) = e.node(x, y);
-        let inside = nx >= e.p[0] && nx < e.p[2] && ny >= e.p[1] && ny < e.p[3];
-        if inside == (e.p[4] < 0.5) { e.s(0, x, y) } else { [0.0; 4] }
+    cpu: |e, r| {
+        let [s0, ..] = r.s;
+        r.fill(|i, x, y| {
+            let (nx, ny) = e.node(x, y);
+            let inside = nx >= e.p[0] && nx < e.p[2] && ny >= e.p[1] && ny < e.p[3];
+            if inside == (e.p[4] < 0.5) { s0[i] } else { [0.0; 4] }
+        })
     },
 };
 
@@ -256,22 +312,25 @@ pub const REFLECT: Kernel = Kernel {
         if (mode == 1u) { return clamp_premul(d + m); }
         return vec4<f32>(max(d.rgb - m.rgb, vec3<f32>(0.0)), d.a);
     }"#,
-    cpu: |e, x, y| {
-        let (nx, ny) = e.node(x, y);
-        let d = e.s(0, x, y);
-        let (coord, lim) = if e.p[0] > 0.5 { (ny, e.extent[1]) } else { (nx, e.extent[0]) };
-        let axis = e.p[1];
-        let dest = if e.p[2] > 0.5 { coord < axis } else { coord > axis };
-        let mc = 2.0 * axis - coord;
-        if !dest || mc < 0.0 || mc > lim {
-            return d;
-        }
-        let m = e.s(1, x, y);
-        match (e.p[3] + 0.5) as u32 {
-            0 => m,
-            1 => clamp_premul([d[0] + m[0], d[1] + m[1], d[2] + m[2], d[3] + m[3]]),
-            _ => [(d[0] - m[0]).max(0.0), (d[1] - m[1]).max(0.0), (d[2] - m[2]).max(0.0), d[3]],
-        }
+    cpu: |e, r| {
+        let [s0, s1, ..] = r.s;
+        r.fill(|i, x, y| {
+            let (nx, ny) = e.node(x, y);
+            let d = s0[i];
+            let (coord, lim) = if e.p[0] > 0.5 { (ny, e.extent[1]) } else { (nx, e.extent[0]) };
+            let axis = e.p[1];
+            let dest = if e.p[2] > 0.5 { coord < axis } else { coord > axis };
+            let mc = 2.0 * axis - coord;
+            if !dest || mc < 0.0 || mc > lim {
+                return d;
+            }
+            let m = s1[i];
+            match (e.p[3] + 0.5) as u32 {
+                0 => m,
+                1 => clamp_premul([d[0] + m[0], d[1] + m[1], d[2] + m[2], d[3] + m[3]]),
+                _ => [(d[0] - m[0]).max(0.0), (d[1] - m[1]).max(0.0), (d[2] - m[2]).max(0.0), d[3]],
+            }
+        })
     },
 };
 
@@ -557,30 +616,33 @@ fn kernel(p: vec2<f32>) -> vec4<f32> {
     return clamp_premul(vec4<f32>(rgb, a_s + b.a * (1.0 - a_s)));
 }
 "#,
-    cpu: |e, x, y| {
-        let b = e.s(0, x, y);
-        let s = e.s(1, x, y);
-        let mode = (e.p[0] + 0.5) as u32;
-        let mut a_s = s[3] * e.p[1].clamp(0.0, 1.0);
-        let cb = unpremul(b);
-        let cs = unpremul(s);
-        let mut mixed = cs;
-        if mode == 1 {
-            let (nx, ny) = e.node(x, y);
-            let h = hash2(nx.floor() as i32, ny.floor() as i32, 7) as f32 / 4294967296.0;
-            a_s = if h < a_s { 1.0 } else { 0.0 };
-        } else if mode != 0 {
-            let bc = blend_color(mode, cb, cs);
-            for i in 0..3 {
-                mixed[i] = (1.0 - b[3]) * cs[i] + b[3] * bc[i];
+    cpu: |e, r| {
+        let [s0, s1, ..] = r.s;
+        r.fill(|i, x, y| {
+            let b = s0[i];
+            let s = s1[i];
+            let mode = (e.p[0] + 0.5) as u32;
+            let mut a_s = s[3] * e.p[1].clamp(0.0, 1.0);
+            let cb = unpremul(b);
+            let cs = unpremul(s);
+            let mut mixed = cs;
+            if mode == 1 {
+                let (nx, ny) = e.node(x, y);
+                let h = hash2(nx.floor() as i32, ny.floor() as i32, 7) as f32 / 4294967296.0;
+                a_s = if h < a_s { 1.0 } else { 0.0 };
+            } else if mode != 0 {
+                let bc = blend_color(mode, cb, cs);
+                for i in 0..3 {
+                    mixed[i] = (1.0 - b[3]) * cs[i] + b[3] * bc[i];
+                }
             }
-        }
-        let mut o = [0.0; 4];
-        for i in 0..3 {
-            o[i] = a_s * mixed[i] + (1.0 - a_s) * b[i];
-        }
-        o[3] = a_s + b[3] * (1.0 - a_s);
-        clamp_premul(o)
+            let mut o = [0.0; 4];
+            for i in 0..3 {
+                o[i] = a_s * mixed[i] + (1.0 - a_s) * b[i];
+            }
+            o[3] = a_s + b[3] * (1.0 - a_s);
+            clamp_premul(o)
+        })
     },
 };
 
@@ -678,7 +740,7 @@ pub const SOLID: Kernel = Kernel {
     name: "solid",
     inputs: 0,
     wgsl: "fn kernel(p: vec2<f32>) -> vec4<f32> { return color_param(0u); }",
-    cpu: |e, _, _| e.color(0),
+    cpu: |e, r| r.fill(|_, _, _| e.color(0)),
 };
 
 /// P0..3 color A, P4..7 color B, P8,P9 start (fraction of extent), P10,P11 end.
@@ -692,14 +754,14 @@ pub const LINEAR_GRADIENT: Kernel = Kernel {
         let t = dot(n - a, d) / max(dot(d, d), 1e-9);
         return mix(color_param(0u), color_param(4u), clamp(t, 0.0, 1.0));
     }"#,
-    cpu: |e, x, y| {
+    cpu: |e, r| r.fill(|_, x, y| {
         let (nx, ny) = e.node(x, y);
         let (nx, ny) = (nx / e.extent[0], ny / e.extent[1]);
         let (ax, ay) = (e.p[8], e.p[9]);
         let (dx, dy) = (e.p[10] - ax, e.p[11] - ay);
         let t = ((nx - ax) * dx + (ny - ay) * dy) / (dx * dx + dy * dy).max(1e-9);
         mix_px(e.color(0), e.color(4), t)
-    },
+    }),
 };
 
 /// P0..3 inner color, P4..7 outer color, P8,P9 center (fraction of extent),
@@ -714,13 +776,13 @@ pub const RADIAL_GRADIENT: Kernel = Kernel {
         let t = length(node(p) - c) / r;
         return mix(color_param(0u), color_param(4u), clamp(t, 0.0, 1.0));
     }"#,
-    cpu: |e, x, y| {
+    cpu: |e, r| r.fill(|_, x, y| {
         let (nx, ny) = e.node(x, y);
         let (cx, cy) = (e.p[8] * e.extent[0], e.p[9] * e.extent[1]);
         let r = (e.p[10] * e.extent[0].min(e.extent[1])).max(1e-6);
         let t = ((nx - cx).powi(2) + (ny - cy).powi(2)).sqrt() / r;
         mix_px(e.color(0), e.color(4), t)
-    },
+    }),
 };
 
 /// P0..3 color A, P4..7 color B, P8 cell size (fraction of smaller dim).
@@ -735,12 +797,12 @@ pub const CHECKER: Kernel = Kernel {
         if ((k & 1) == 0) { return color_param(0u); }
         return color_param(4u);
     }"#,
-    cpu: |e, x, y| {
+    cpu: |e, r| r.fill(|_, x, y| {
         let (nx, ny) = e.node(x, y);
         let s = (e.p[8] * e.extent[0].min(e.extent[1])).max(1e-3);
         let k = (nx / s).floor() as i32 + (ny / s).floor() as i32;
         if k & 1 == 0 { e.color(0) } else { e.color(4) }
-    },
+    }),
 };
 
 /// Fractal Perlin noise.
@@ -771,7 +833,7 @@ pub const NOISE: Kernel = Kernel {
         let t = 0.5 + 0.5 * clamp(v * P(14u), -1.0, 1.0);
         return mix(color_param(0u), color_param(4u), t);
     }"#,
-    cpu: |e, x, y| {
+    cpu: |e, r| r.fill(|_, x, y| {
         let (nx, ny) = e.node(x, y);
         let s = (e.p[8] * e.extent[0].min(e.extent[1])).max(1e-3);
         let (mut qx, mut qy) = (nx / s, ny / s);
@@ -795,7 +857,7 @@ pub const NOISE: Kernel = Kernel {
         let v = sum / total.max(1e-6);
         let t = 0.5 + 0.5 * (v * e.p[14]).clamp(-1.0, 1.0);
         mix_px(e.color(0), e.color(4), t)
-    },
+    }),
 };
 
 /// Worley / Voronoi cells.
@@ -829,7 +891,7 @@ pub const VORONOI: Kernel = Kernel {
         if (mode == 2u) { t = 1.0 - smoothstep(0.0, 0.08, f2 - f1); }
         return mix(color_param(0u), color_param(4u), clamp(t, 0.0, 1.0));
     }"#,
-    cpu: |e, x, y| {
+    cpu: |e, r| r.fill(|_, x, y| {
         let (nx, ny) = e.node(x, y);
         let s = (e.p[8] * e.extent[0].min(e.extent[1])).max(1e-3);
         let (qx, qy) = (nx / s, ny / s);
@@ -861,7 +923,7 @@ pub const VORONOI: Kernel = Kernel {
             _ => f1,
         };
         mix_px(e.color(0), e.color(4), t)
-    },
+    }),
 };
 
 /// Mandelbrot set with a cosine palette.
@@ -887,7 +949,7 @@ pub const MANDELBROT: Kernel = Kernel {
         let col = 0.5 + 0.5 * cos(6.2831853 * (vec3<f32>(t) + vec3<f32>(P(4u), P(5u), P(6u))));
         return vec4<f32>(col, 1.0);
     }"#,
-    cpu: |e, x, y| {
+    cpu: |e, r| r.fill(|_, x, y| {
         let (nx, ny) = e.node(x, y);
         let md = e.extent[0].min(e.extent[1]);
         let k = 3.0 / e.p[2].max(1e-6);
@@ -910,7 +972,7 @@ pub const MANDELBROT: Kernel = Kernel {
         let t = sm / 32.0;
         let f = |ph: f32| 0.5 + 0.5 * (std::f32::consts::TAU * (t + ph)).cos();
         [f(e.p[4]), f(e.p[5]), f(e.p[6]), 1.0]
-    },
+    }),
 };
 
 pub const ALL: &[&Kernel] = &[
@@ -919,6 +981,30 @@ pub const ALL: &[&Kernel] = &[
 
 /// Runs a kernel on the CPU, parallelised over rows.
 pub fn run_cpu(k: &Kernel, env: &Env, w: u32, h: u32) -> CpuTile {
-    let f = k.cpu;
-    CpuTile::from_fn_par(w, h, |x, y| f(env, x as f32 + 0.5, y as f32 + 0.5))
+    let mut t = CpuTile::new(w, h);
+    let w = w as usize;
+    if w == 0 {
+        return t;
+    }
+    let clear = vec![CLEAR; w];
+    t.data.par_chunks_mut(w).enumerate().for_each_init(
+        || vec![vec![CLEAR; w]; MAX_INPUTS],
+        |scratch, (j, out)| {
+            let y = j as f32 + 0.5;
+            // Inputs not on the output grid are resampled into scratch rows.
+            for (inp, buf) in env.inputs.iter().zip(scratch.iter_mut()) {
+                if let (Some(tile), None) = (inp.tile, inp.aligned_row(j, w)) {
+                    inp.sample_row(tile, y, buf);
+                }
+            }
+            let mut s: [&[Px]; MAX_INPUTS] = [&clear; MAX_INPUTS];
+            for (n, inp) in env.inputs.iter().enumerate() {
+                if inp.tile.is_some() {
+                    s[n] = inp.aligned_row(j, w).unwrap_or(&scratch[n]);
+                }
+            }
+            (k.cpu)(env, Row { y, s, out });
+        },
+    );
+    t
 }
