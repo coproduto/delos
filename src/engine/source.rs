@@ -1,8 +1,8 @@
 //! Decoded source images with a mip pyramid, so any region can be rendered
 //! at any scale in time proportional to the *output* size.
 
-use super::geom::{Request, Sampling};
-use super::tile::CpuTile;
+use super::geom::{Map2, Request, Sampling};
+use super::tile::{CpuTile, SampleMode};
 use rayon::prelude::*;
 
 /// One pyramid level: premultiplied RGBA8, row-major.
@@ -109,15 +109,33 @@ impl SourceImage {
         out
     }
 
-    pub fn render(&self, req: &Request) -> CpuTile {
-        let sx = req.step_x();
-        let sy = req.step_y();
-        let step = sx.min(sy);
-        let level = if req.sampling == Sampling::Point || step <= 1.0 {
+    /// The pyramid level to sample for `req`: the finest one whose texels
+    /// are no smaller than the request's pixels.
+    pub fn level_for(&self, req: &Request) -> usize {
+        let step = req.step_x().min(req.step_y());
+        if req.sampling == Sampling::Point || step <= 1.0 {
             0
         } else {
             (step.log2().floor() as usize).min(self.levels.len() - 1)
-        };
+        }
+    }
+
+    /// How [`render`](Self::render) samples `level` for `req`, for kernels:
+    /// the map from output pixel centers to the level's texel coordinates,
+    /// and the sampling mode.
+    pub fn texel_map(&self, level: usize, req: &Request) -> (Map2, SampleMode) {
+        let lv = &self.levels[level];
+        let kx = lv.w as f64 / self.width as f64;
+        let ky = lv.h as f64 / self.height as f64;
+        let r = req.region;
+        let map = Map2::new(req.step_x() * kx, r.x * kx, req.step_y() * ky, r.y * ky);
+        (map, if level > 0 { SampleMode::Bilinear } else { SampleMode::Nearest })
+    }
+
+    pub fn render(&self, req: &Request) -> CpuTile {
+        let sx = req.step_x();
+        let sy = req.step_y();
+        let level = self.level_for(req);
         let lv = &self.levels[level];
         let lut = &*U8_TO_F32;
         let (iw, ih) = (self.width as f64, self.height as f64);

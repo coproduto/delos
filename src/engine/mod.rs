@@ -222,6 +222,35 @@ impl<'a> Ctx<'a> {
         }
     }
 
+    /// Samples a source image for `req`: on the GPU from its resident
+    /// pyramid level when possible, otherwise on the CPU.
+    pub fn source(&self, img: &Arc<SourceImage>, req: &Request) -> Tile {
+        #[cfg(feature = "gpu")]
+        if let Some(t) = self.source_on_gpu(img, req) {
+            return t;
+        }
+        Tile::Cpu(img.render(req))
+    }
+
+    /// `None` unless the GPU is in use and the level is resident (asking
+    /// queues its upload). The level is RGBA8, unlike other GPU tiles, so it
+    /// is only ever a kernel input here, never returned.
+    #[cfg(feature = "gpu")]
+    fn source_on_gpu(&self, img: &Arc<SourceImage>, req: &Request) -> Option<Tile> {
+        let g = self.engine.active_gpu()?;
+        if !g.fits(req.width, req.height) {
+            return None;
+        }
+        let pipeline = g.pipeline(&kernels::RESAMPLE)?;
+        let level = img.level_for(req);
+        let tile = gpu::GpuTile::from(g.resident.get(img, level)?);
+        let (map, mode) = img.texel_map(level, req);
+        let input = gpu::GpuInput { tile: Some(&tile), map: map.as_f32(), mode };
+        let extent = [req.extent.w as f32, req.extent.h as f32];
+        let out = g.run(&pipeline, &[input], req.pixel_to_node().as_f32(), extent, &[0.0; MAX_PARAMS], req.width, req.height);
+        Some(Tile::Gpu(out))
+    }
+
     /// Runs a kernel over the request's grid, on the GPU when possible.
     pub fn kernel(&self, k: &Kernel, inputs: Vec<KernelInput>, req: &Request, params: &[f32]) -> anyhow::Result<Tile> {
         if self.cancelled() {

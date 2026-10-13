@@ -19,6 +19,12 @@ pub struct GpuTile {
     view: wgpu::TextureView,
 }
 
+impl From<super::resident::Level> for GpuTile {
+    fn from(l: super::resident::Level) -> Self {
+        GpuTile { w: l.w, h: l.h, tex: l.tex, view: l.view }
+    }
+}
+
 pub struct GpuInput<'a> {
     pub tile: Option<&'a GpuTile>,
     pub map: [f32; 4],

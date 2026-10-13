@@ -87,7 +87,7 @@ impl NodeKind for StaticImage {
     fn render(&self, ctx: &Ctx, node: &Node, req: &Request) -> anyhow::Result<Tile> {
         let id = node.params.i(IMAGE_PARAM) as u64;
         let img = ctx.graph.images.get(&id).ok_or_else(|| anyhow::anyhow!("image data missing"))?;
-        Ok(Tile::Cpu(img.render(req)))
+        Ok(ctx.source(img, req))
     }
     fn user_creatable(&self) -> bool {
         false
