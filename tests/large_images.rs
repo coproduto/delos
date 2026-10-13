@@ -111,7 +111,7 @@ fn export_16k_streams_in_bands() {
     g.set_param(g.output, "canvas_w", Value::Int(N as i64));
     g.set_param(g.output, "canvas_h", Value::Int(N as i64));
     let progress = |_p: f32| {};
-    let mut bands = GraphBands::new(&engine, &g, g.output, &no_cancel, &progress, &no_status);
+    let mut bands = GraphBands::new(&engine, &g, g.output.into(), &no_cancel, &progress, &no_status);
     assert_eq!((bands.width(), bands.height()), (N, N));
     let (rows, d) = timed(&format!("16K generator band render ({})", engine.backend_name()), || {
         let mut rows = 0u64;

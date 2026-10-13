@@ -86,17 +86,17 @@ fn stack_chain_editing() {
     let c = add_image(&mut g, 8, 8);
     let s = g.add_node("stack", (0.0, 0.0));
     g.connect(s, g.output, 0).unwrap();
-    g.set_stack_layers(s, vec![Some(a), Some(b), Some(c)]);
+    g.set_stack_layers(s, vec![Some(a.into()), Some(b.into()), Some(c.into())]);
     let chain = g.stack_chain(s).unwrap();
-    assert_eq!(chain.layers, vec![Some(a), Some(b), Some(c)]);
+    assert_eq!(chain.layers, vec![Some(a.into()), Some(b.into()), Some(c.into())]);
     assert_eq!(chain.stacks.len(), 2);
     assert!(g.is_interior_stack(chain.stacks[1]));
     assert_eq!(g.chain_head(chain.stacks[1]), s);
-    g.set_stack_layers(s, vec![Some(c), Some(a)]);
+    g.set_stack_layers(s, vec![Some(c.into()), Some(a.into())]);
     let chain = g.stack_chain(s).unwrap();
-    assert_eq!(chain.layers, vec![Some(c), Some(a)]);
+    assert_eq!(chain.layers, vec![Some(c.into()), Some(a.into())]);
     assert_eq!(chain.stacks, vec![s]);
-    assert_eq!(g.node(g.output).unwrap().inputs[0], Some(s));
+    assert_eq!(g.node(g.output).unwrap().input_node(0), Some(s));
 }
 
 #[test]

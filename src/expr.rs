@@ -16,6 +16,8 @@
 //!   empty), parameters by key. Every parameter is written when saving;
 //!   when reading, omitted parameters take their defaults.
 //! - `(stack front … back)`: a layer stack (a chain of stack nodes).
+//! - Nodes with several outputs (splits) are always bound with `def`, and
+//!   each output is referred to as `name.output` (e.g. `s.left`).
 //! - `(image "path")`: a static image; the path is relative to the project.
 //! - `:at (x y)` is the position in the graph view and `:title "…"` a custom
 //!   title. Nodes without `:at` are laid out automatically.
@@ -24,7 +26,7 @@
 //! as `(r g b a)` lists in 0..1, and text as strings.
 
 use crate::engine::source::SourceImage;
-use crate::graph::{Graph, NodeId};
+use crate::graph::{Graph, Link, NodeId};
 use crate::nodes::{self, ids, ParamKind, Value, IMAGE_PARAM};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -239,7 +241,16 @@ impl Doc {
             Doc::List(items) if !fits && items.len() > 1 => {
                 out.push('(');
                 items[0].write(indent + 1, out);
-                for it in &items[1..] {
+                // `(def name` stays on one line; the definition follows.
+                let sticky = match &items[0] {
+                    Doc::Atom(a) if a == "def" && items.len() > 2 => 2,
+                    _ => 1,
+                };
+                for it in &items[1..sticky] {
+                    out.push(' ');
+                    it.write(indent + 1, out);
+                }
+                for it in &items[sticky..] {
                     out.push('\n');
                     out.push_str(&" ".repeat(indent + 2));
                     it.write(indent + 2, out);
@@ -274,6 +285,11 @@ fn is_symbol(s: &str) -> bool {
         && !matches!(s, "_" | "true" | "false" | "def" | "output")
 }
 
+/// A name `def` can bind: a symbol without `.` (which selects outputs).
+fn is_name(s: &str) -> bool {
+    is_symbol(s) && !s.contains('.')
+}
+
 fn value_text(v: &Value) -> String {
     match v {
         Value::Float(f) => format!("{f}"),
@@ -296,12 +312,19 @@ struct Printer<'a> {
 }
 
 impl Printer<'_> {
-    fn reference(&self, id: Option<NodeId>) -> Doc {
-        match id {
+    fn reference(&self, link: Option<Link>) -> Doc {
+        match link {
             None => Doc::Atom("_".into()),
-            Some(id) => match self.names.get(&id) {
-                Some(name) => Doc::Atom(name.clone()),
-                None => self.node(id),
+            Some(l) => match self.names.get(&l.node) {
+                Some(name) => {
+                    let outputs = self.g.nodes[&l.node].kind().outputs();
+                    if outputs.len() > 1 {
+                        Doc::Atom(format!("{name}.{}", outputs.get(l.output).copied().unwrap_or("?")))
+                    } else {
+                        Doc::Atom(name.clone())
+                    }
+                }
+                None => self.node(l.node),
             },
         }
     }
@@ -316,7 +339,7 @@ impl Printer<'_> {
             loop {
                 items.push(self.reference(cur.inputs[0]));
                 match cur.inputs[1] {
-                    Some(next) if self.collapsed.contains(&next) => cur = &self.g.nodes[&next],
+                    Some(next) if next.output == 0 && self.collapsed.contains(&next.node) => cur = &self.g.nodes[&next.node],
                     back => {
                         items.push(self.reference(back));
                         break;
@@ -358,8 +381,8 @@ pub fn to_text(g: &Graph) -> Result<String, String> {
     }
     let mut consumers: HashMap<NodeId, usize> = HashMap::new();
     for n in g.nodes.values() {
-        for i in n.inputs.iter().flatten() {
-            *consumers.entry(*i).or_default() += 1;
+        for i in n.input_nodes() {
+            *consumers.entry(i).or_default() += 1;
         }
     }
     let uses = |id: NodeId| consumers.get(&id).copied().unwrap_or(0);
@@ -374,20 +397,23 @@ pub fn to_text(g: &Graph) -> Result<String, String> {
         if !seen.insert(id) {
             return;
         }
-        for i in g.nodes[&id].inputs.iter().flatten() {
-            visit(g, *i, seen, order);
+        for i in g.nodes[&id].input_nodes() {
+            visit(g, i, seen, order);
         }
         order.push(id);
     }
     for id in g.nodes.keys() {
         visit(g, *id, &mut seen, &mut order);
     }
-    let shared: Vec<NodeId> = order.into_iter().filter(|id| uses(*id) >= 2).collect();
+    // Shared nodes, and nodes with several outputs (whose outputs are
+    // referred to by name), are bound with def.
+    let multi = |id: NodeId| g.nodes[&id].kind().outputs().len() > 1;
+    let shared: Vec<NodeId> = order.into_iter().filter(|id| uses(*id) >= 2 || (uses(*id) >= 1 && multi(*id))).collect();
     for id in &shared {
         let n = &g.nodes[id];
         let base = n.label.as_deref().map(|l| l.split('.').next().unwrap_or(l)).unwrap_or(n.kind);
         let mut base: String = base.chars().map(|c| if c.is_alphanumeric() || c == '-' { c.to_ascii_lowercase() } else { '-' }).collect();
-        if !is_symbol(&base) {
+        if !is_name(&base) {
             base = format!("{}-{base}", n.kind);
         }
         let mut name = base.clone();
@@ -453,13 +479,13 @@ pub fn build(forms: &[Sexp], image: &dyn Fn(&str) -> Result<Arc<SourceImage>, St
                 let [_, Sexp::Sym(name, npos), expr] = items.as_slice() else {
                     return err(*pos, "expected `(def name expression)`");
                 };
-                if !is_symbol(name) {
+                if !is_name(name) {
                     return err(*npos, format!("`{name}` cannot be used as a name"));
                 }
                 if b.env.contains_key(name) {
                     return err(*npos, format!("`{name}` is already defined"));
                 }
-                let id = b.expr(expr)?;
+                let id = b.node(expr)?;
                 b.env.insert(name.clone(), id);
             }
             Some(Sexp::Sym(head, _)) if head == ids::OUTPUT => {
@@ -471,7 +497,7 @@ pub fn build(forms: &[Sexp], image: &dyn Fn(&str) -> Result<Arc<SourceImage>, St
                 b.fill(out, &items[1..], *pos)?;
             }
             _ => {
-                b.expr(form)?;
+                b.node(form)?;
             }
         }
     }
@@ -493,16 +519,44 @@ struct Builder<'a> {
 }
 
 impl Builder<'_> {
-    fn input(&mut self, s: &Sexp) -> Result<Option<NodeId>, ExprError> {
+    /// An input: `_`, a name (`photo`, or `s.left` for one output of a
+    /// node with several), or a nested node.
+    fn input(&mut self, s: &Sexp) -> Result<Option<Link>, ExprError> {
         match s {
             Sexp::Sym(name, _) if name == "_" => Ok(None),
-            _ => self.expr(s).map(Some),
+            Sexp::Sym(name, pos) => self.reference(name, *pos).map(Some),
+            Sexp::List(..) => {
+                let id = self.node(s)?;
+                let kind = self.g.nodes[&id].kind();
+                if kind.outputs().len() > 1 {
+                    return err(s.pos(), format!("`{}` has several outputs: bind it with `def` and use `name.{}`", kind.id(), kind.outputs()[0]));
+                }
+                Ok(Some(id.into()))
+            }
+            other => err(other.pos(), format!("expected a node, found {}", other.describe())),
         }
     }
 
-    fn expr(&mut self, s: &Sexp) -> Result<NodeId, ExprError> {
+    fn reference(&self, name: &str, pos: Pos) -> Result<Link, ExprError> {
+        let (base, output) = match name.rsplit_once('.') {
+            Some((b, o)) => (b, Some(o)),
+            None => (name, None),
+        };
+        let Some(&id) = self.env.get(base) else { return err(pos, format!("unknown name `{base}`")) };
+        let outputs = self.g.nodes[&id].kind().outputs();
+        match output {
+            None if outputs.len() == 1 => Ok(id.into()),
+            None => err(pos, format!("`{base}` has several outputs: write {}", outputs.iter().map(|o| format!("`{base}.{o}`")).collect::<Vec<_>>().join(" or "))),
+            Some(o) => match outputs.iter().position(|x| *x == o) {
+                Some(k) => Ok(Link::new(id, k)),
+                None => err(pos, format!("`{base}` has no output `{o}` (outputs: {})", outputs.join(", "))),
+            },
+        }
+    }
+
+    /// Creates the node a list form describes.
+    fn node(&mut self, s: &Sexp) -> Result<NodeId, ExprError> {
         match s {
-            Sexp::Sym(name, pos) => self.env.get(name).copied().map_or_else(|| err(*pos, format!("unknown name `{name}`")), Ok),
             Sexp::List(items, pos) => {
                 let Some(Sexp::Sym(head, hpos)) = items.first() else {
                     return err(*pos, "expected a node like `(invert …)`");
@@ -517,7 +571,7 @@ impl Builder<'_> {
                 self.fill(id, &items[1..], *pos)?;
                 Ok(id)
             }
-            other => err(other.pos(), format!("expected a node, found {}", other.describe())),
+            other => err(other.pos(), format!("expected a node like `(invert …)`, found {}", other.describe())),
         }
     }
 
@@ -617,7 +671,7 @@ impl Builder<'_> {
         if unplaced.is_empty() {
             return;
         }
-        let consumed: HashSet<NodeId> = g.nodes.values().flat_map(|n| n.inputs.iter().flatten().copied()).collect();
+        let consumed: HashSet<NodeId> = g.nodes.values().flat_map(|n| n.input_nodes()).collect();
         let mut depth: HashMap<NodeId, usize> = HashMap::new();
         let mut stack: Vec<(NodeId, usize)> = g.nodes.keys().filter(|id| !consumed.contains(id)).map(|id| (*id, 0)).collect();
         while let Some((id, d)) = stack.pop() {
@@ -625,8 +679,8 @@ impl Builder<'_> {
                 continue;
             }
             depth.insert(id, d);
-            for i in g.nodes[&id].inputs.iter().flatten() {
-                stack.push((*i, d + 1));
+            for i in g.nodes[&id].input_nodes() {
+                stack.push((i, d + 1));
             }
         }
         let origin = if self.placed.contains(&g.output) { g.nodes[&g.output].pos } else { (900.0, 200.0) };
@@ -693,6 +747,7 @@ fn parse_value(kind: &ParamKind, default: &Value, v: &Sexp) -> Result<Value, Exp
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::Link;
 
     fn tiny(name: &str) -> Arc<SourceImage> {
         Arc::new(SourceImage::from_rgba8(name, 2, 1, vec![255, 0, 0, 255, 0, 0, 255, 128]))
@@ -732,9 +787,9 @@ mod tests {
     #[test]
     fn nested_expression_builds_graph() {
         let g = from_text("(output (invert (noise :seed 7)))", &images).unwrap();
-        let inv = g.nodes[&g.output].inputs[0].unwrap();
+        let inv = g.nodes[&g.output].input_node(0).unwrap();
         assert_eq!(g.nodes[&inv].kind, "invert");
-        let noise = g.nodes[&inv].inputs[0].unwrap();
+        let noise = g.nodes[&inv].input_node(0).unwrap();
         assert_eq!(g.nodes[&noise].params.i("seed"), 7);
         assert_eq!(g.nodes.len(), 3);
     }
@@ -753,7 +808,7 @@ mod tests {
     #[test]
     fn stacks_are_lists_of_layers() {
         let g = from_text("(output (stack (noise) (checker) (solid) _))", &images).unwrap();
-        let head = g.nodes[&g.output].inputs[0].unwrap();
+        let head = g.nodes[&g.output].input_node(0).unwrap();
         let chain = g.stack_chain(head).unwrap();
         // Three stack nodes; the empty back slot is not counted as a layer.
         assert_eq!(chain.stacks.len(), 3);
@@ -762,15 +817,15 @@ mod tests {
         let text = to_text(&g).unwrap();
         assert!(flat(&text).contains("(stack (noise"), "{text}");
         let g2 = from_text(&text, &images).unwrap();
-        let chain2 = g2.stack_chain(g2.nodes[&g2.output].inputs[0].unwrap()).unwrap();
+        let chain2 = g2.stack_chain(g2.nodes[&g2.output].input_node(0).unwrap()).unwrap();
         assert_eq!((chain2.stacks.len(), chain2.layers.len()), (3, 3));
         // A single layer is a one-node stack.
         let g = from_text("(output (stack (noise)))", &images).unwrap();
-        let chain = g.stack_chain(g.nodes[&g.output].inputs[0].unwrap()).unwrap();
+        let chain = g.stack_chain(g.nodes[&g.output].input_node(0).unwrap()).unwrap();
         assert_eq!((chain.stacks.len(), chain.layers.len()), (1, 1));
         // Three layers without an empty slot use two stack nodes.
         let g = from_text("(output (stack (noise) (checker) (solid)))", &images).unwrap();
-        let chain = g.stack_chain(g.nodes[&g.output].inputs[0].unwrap()).unwrap();
+        let chain = g.stack_chain(g.nodes[&g.output].input_node(0).unwrap()).unwrap();
         assert_eq!((chain.stacks.len(), chain.layers.len()), (2, 3));
         assert!(flat(&to_text(&g).unwrap()).contains("(stack (noise"));
     }
@@ -836,6 +891,43 @@ mod tests {
         assert!(e("(output (noise :seed 1 :seed 2))").message.contains("twice"));
         let pos = e("(output\n  (sparkle))");
         assert_eq!((pos.line, pos.col), (2, 4));
+    }
+
+    #[test]
+    fn split_outputs_are_referred_to_by_name() {
+        let text = "(def s (split_vertical (image \"inputs/p.png\") :position 0.3))\n(output (stack (invert s.left) s.right))";
+        let g = from_text(text, &images).unwrap();
+        let split = g.nodes.values().find(|n| n.kind == "split_vertical").unwrap().id;
+        let stack = g.nodes.values().find(|n| n.kind == "stack").unwrap();
+        assert_eq!(stack.inputs[1], Some(Link::new(split, 1)));
+        let inv = stack.input_node(0).unwrap();
+        assert_eq!(g.nodes[&inv].inputs[0], Some(Link::new(split, 0)));
+        let out = to_text(&g).unwrap();
+        assert!(flat(&out).contains("(stack (invert split-vertical.left"), "{out}");
+        assert!(flat(&out).contains("split-vertical.right"), "{out}");
+        assert_eq!(round_trip(&out), out);
+    }
+
+    #[test]
+    fn a_split_used_once_is_still_named() {
+        let g = from_text("(def s (split_rect (noise)))\n(output s.outside)", &images).unwrap();
+        let out = to_text(&g).unwrap();
+        assert!(out.starts_with("; Delos expression\n(def split-rect\n  (split_rect"), "{out}");
+        assert!(flat(&out).contains("(output split-rect.outside"), "{out}");
+        // An unused split is written like any detached node.
+        let g = from_text("(split_horizontal (noise))", &images).unwrap();
+        assert!(flat(&to_text(&g).unwrap()).contains("(split_horizontal (noise"));
+    }
+
+    #[test]
+    fn split_reference_errors() {
+        let e = |t: &str| from_text(t, &images).err().expect("should fail").message;
+        assert!(e("(def s (split_vertical (noise))) (output s)").contains("write `s.left` or `s.right`"));
+        assert!(e("(def s (split_vertical (noise))) (output s.middle)").contains("no output `middle` (outputs: left, right)"));
+        assert!(e("(output (invert (split_vertical (noise))))").contains("bind it with `def`"));
+        assert!(e("(def a.b (noise))").contains("cannot be used as a name"));
+        // A single output may also be named explicitly.
+        assert!(from_text("(def n (noise)) (output n.image)", &images).is_ok());
     }
 
     #[test]

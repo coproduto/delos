@@ -7,6 +7,7 @@ mod basic;
 mod bgremove;
 mod generators;
 mod resize;
+mod split;
 
 use crate::engine::geom::{Map2, Request, Size};
 use crate::engine::tile::Tile;
@@ -20,6 +21,8 @@ pub enum Category {
     Source,
     Generator,
     Filter,
+    /// Nodes that divide an image into parts, one per output.
+    Split,
     Combine,
     Output,
 }
@@ -30,6 +33,7 @@ impl Category {
             Category::Source => "Sources",
             Category::Generator => "Generators",
             Category::Filter => "Filters",
+            Category::Split => "Split",
             Category::Combine => "Combine",
             Category::Output => "Output",
         }
@@ -168,6 +172,9 @@ pub enum Overlay {
     /// A draggable axis line. `orientation` is a choice param with values
     /// "vertical" / "horizontal".
     Axis { orientation: &'static str, position: &'static str },
+    /// A draggable straight line at a fixed orientation, with the names of
+    /// the two sides (e.g. a split border).
+    Line { position: &'static str, horizontal: bool, sides: [&'static str; 2] },
     /// A draggable/resizable rectangle.
     Rect { x: &'static str, y: &'static str, w: &'static str, h: &'static str },
     /// A draggable point.
@@ -194,14 +201,25 @@ pub trait NodeKind: Send + Sync + 'static {
     fn inputs(&self) -> &'static [&'static str] {
         &[]
     }
+    /// Names of the outputs. Most nodes produce one image; nodes such as
+    /// splits produce several (all of the node's size).
+    fn outputs(&self) -> &'static [&'static str] {
+        &["image"]
+    }
     fn params(&self) -> Vec<ParamDef> {
         Vec::new()
     }
     /// Output size given the input sizes; `None` means size-less (the node
     /// adapts to whatever size it is requested at).
     fn size(&self, node: &Node, inputs: &[Option<Size>]) -> Option<Size>;
-    /// Renders the requested grid.
+    /// Renders the requested grid (of the first output).
     fn render(&self, ctx: &Ctx, node: &Node, req: &Request) -> anyhow::Result<Tile>;
+    /// Renders the requested grid of output `output`. Nodes with several
+    /// outputs override this.
+    fn render_output(&self, ctx: &Ctx, node: &Node, output: usize, req: &Request) -> anyhow::Result<Tile> {
+        debug_assert_eq!(output, 0);
+        self.render(ctx, node, req)
+    }
     fn overlays(&self, _node: &Node) -> Vec<Overlay> {
         Vec::new()
     }
@@ -234,6 +252,7 @@ static REGISTRY: LazyLock<Vec<&'static dyn NodeKind>> = LazyLock::new(|| {
     let mut v: Vec<&'static dyn NodeKind> = Vec::new();
     v.extend(basic::kinds());
     v.extend(resize::kinds());
+    v.extend(split::kinds());
     v.extend(generators::kinds());
     v.extend(bgremove::kinds());
     v

@@ -269,7 +269,7 @@ fn finish_import(mut app: App, img: Arc<crate::engine::source::SourceImage>, tar
             ImportTarget::StackLayer(head) => {
                 if let Some(chain) = g.stack_chain(head) {
                     let mut layers = chain.layers.clone();
-                    layers.insert(0, Some(n));
+                    layers.insert(0, Some(n.into()));
                     g.set_stack_layers(chain.head, layers);
                 }
             }
@@ -316,7 +316,7 @@ fn Toolbar() -> Element {
     let follow = *app.follow_selection.read();
     let disp = app.displayed();
     let pinned = *app.pinned.read();
-    let pinned_title = pinned.and_then(|p| app.graph.read().node(p).map(|n| n.title()));
+    let pinned_title = pinned.map(|p| app.graph.read().link_title(p));
     let importing = *app.importing.read();
     let backend = app.backend.read().clone();
     let has_gpu = worker.0.engine.has_gpu();

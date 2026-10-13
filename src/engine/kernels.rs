@@ -211,6 +211,26 @@ pub const MASK: Kernel = Kernel {
     },
 };
 
+/// Keeps input 0's pixels whose centre is inside (P4 = 0) or outside
+/// (P4 = 1) the node-space rectangle [P0, P2) × [P1, P3); the rest become
+/// transparent. Deciding by pixel centre gives every pixel to exactly one
+/// side, so the two parts of a split add up to the original.
+pub const SPLIT: Kernel = Kernel {
+    name: "split",
+    inputs: 1,
+    wgsl: r#"fn kernel(p: vec2<f32>) -> vec4<f32> {
+        let n = node(p);
+        let inside = n.x >= P(0u) && n.x < P(2u) && n.y >= P(1u) && n.y < P(3u);
+        if (inside == (P(4u) < 0.5)) { return s0(p); }
+        return vec4<f32>(0.0);
+    }"#,
+    cpu: |e, x, y| {
+        let (nx, ny) = e.node(x, y);
+        let inside = nx >= e.p[0] && nx < e.p[2] && ny >= e.p[1] && ny < e.p[3];
+        if inside == (e.p[4] < 0.5) { e.s(0, x, y) } else { [0.0; 4] }
+    },
+};
+
 /// Reflection across an axis. Input 0 is the direct image, input 1 the same
 /// image sampled through the mirror transform.
 /// P0 orientation (0 = vertical axis, 1 = horizontal axis), P1 axis position
@@ -894,7 +914,7 @@ pub const MANDELBROT: Kernel = Kernel {
 };
 
 pub const ALL: &[&Kernel] = &[
-    &RESAMPLE, &INVERT, &OVER, &MASK, &REFLECT, &BLEND, &SOLID, &LINEAR_GRADIENT, &RADIAL_GRADIENT, &CHECKER, &NOISE, &VORONOI, &MANDELBROT,
+    &RESAMPLE, &INVERT, &OVER, &MASK, &SPLIT, &REFLECT, &BLEND, &SOLID, &LINEAR_GRADIENT, &RADIAL_GRADIENT, &CHECKER, &NOISE, &VORONOI, &MANDELBROT,
 ];
 
 /// Runs a kernel on the CPU, parallelised over rows.

@@ -24,7 +24,7 @@ Delos will extensively display and manipulate images. Using GPU acceleration whe
    - 2.1. The image view must show the image that is being sent to the output.
 3. We must be able to open a graph view instead of the image view or alongside the image view. It must also be possible to visualize any part of the graph which produces an image.
    - 3.1. In other terms, we can temporarily relocate the output to any image node.
-     - 3.1.1. Double-clicking a node in the graph view relocates the output to it. Double-clicking the relocated node again, or the Output node, moves the output back to its default.
+     - 3.1.1. Double-clicking a node in the graph view relocates the output to it. For nodes with several outputs, double-clicking one of its output ports relocates the output to that output. Double-clicking the relocated node again, or the Output node, moves the output back to its default.
    - 3.2. If we select an operator node, the image view should show the image at the operator's output overlaid with controls for the specific operator (examples of controls: selection boxes, rules). Examples are given in the operators section below.
      - 3.2.1. Some operators are edited on their input instead. For example, Clip shows the uncropped input with the crop rectangle.
    - 3.3. It must be possible to keep the image view fixed while editing a node further up the graph. While the output is relocated (or when "Preview selection" is turned off), selecting another node keeps the view as it is and draws that node's controls over the shown image. Editing those controls modifies the shown image directly.
@@ -49,6 +49,17 @@ These are basic layer operators which must be implemented in the initial version
   * Blend operator - allows combining images with the blend modes specified at https://en.wikipedia.org/wiki/Blend_modes plus the following:
     * Logic Gate: applies logic operation (and, or, xor) to both images. Note that nand, nor and xnor are not included bc they can be achieved with the invert operator.
   
+
+## Split operators
+
+Splitting an image produces two output images, one for each side of a split border. One output contains the pixels on one side of the border, with every pixel on the other side transparent. The other output contains the complementary pixels, with those present in the first output transparent. This makes localized effects possible, as selections do in a regular editor.
+
+- **Vertical Split** (`left` / `right`), **Horizontal Split** (`top` / `bottom`) and **Rectangle Split** (`inside` / `outside`) are provided. Each is controlled in the image view by dragging the border line, or by moving and resizing the rectangle, or via form inputs.
+- **Exact partition:** every pixel belongs to exactly one output, decided by its centre. Stacking the two outputs therefore reproduces the input exactly, at any zoom level.
+- **Editing view:** when a split is selected, the image view shows its whole input with the border controls.
+- **Outputs:** the inputs of other nodes, the relocated output and exports can each refer to a specific output of a split.
+- **Size:** splits keep their input's size, and splitting a size-less (generative) input splits it at whatever size is requested.
+- **Extensibility:** nodes in general may have any number of outputs. Each node type declares its outputs, and every output of a node has the node's size.
 
 ## Generative operators
 
@@ -127,6 +138,7 @@ The node graph has a plain-text representation, so we can speak of Delos *expres
 ```
 
 - A node is written `(kind input… :param value…)`. Inputs come in port order, and `_` leaves a port empty.
+- Nodes with several outputs (splits) are always bound with `def`, and each output is referred to as `name.output`, e.g. `s.left`.
 - `(stack front … back)` is a layer stack.
 - `(image "inputs/…")` is a static image.
 - `:at (x y)` is a node's position in the graph view, and `:title "…"` gives it a custom title.

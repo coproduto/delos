@@ -7,7 +7,7 @@ use crate::engine::geom::{Rect, Request, Size};
 use crate::engine::source::SourceImage;
 use crate::engine::{is_cancelled, render_to_cpu, Engine, NodeError};
 use crate::formats::{self, EncodeOptions};
-use crate::graph::{Graph, NodeId};
+use crate::graph::{Graph, Link, NodeId};
 use futures_channel::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 pub struct PreviewJob {
     pub seq: u64,
     pub graph: Graph,
-    pub target: NodeId,
+    pub target: Link,
     pub req: Request,
 }
 
@@ -28,7 +28,7 @@ pub enum ExportDest {
 pub struct ExportJob {
     pub id: u64,
     pub graph: Graph,
-    pub target: NodeId,
+    pub target: Link,
     pub codec: String,
     pub opts: EncodeOptions,
     pub dest: ExportDest,

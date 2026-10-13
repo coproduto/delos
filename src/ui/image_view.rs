@@ -107,7 +107,7 @@ pub fn ImageView() -> Element {
         let key = {
             use std::hash::{Hash, Hasher};
             let mut h = std::collections::hash_map::DefaultHasher::new();
-            graph.hash_of(d.target, &mut Default::default()).hash(&mut h);
+            graph.link_hash(d.target, &mut Default::default()).hash(&mut h);
             (d.target, req.width, req.height, backend).hash(&mut h);
             for f in [e.w, e.h, region.x, region.y, region.w, region.h] {
                 f.to_bits().hash(&mut h);
@@ -167,11 +167,11 @@ pub fn ImageView() -> Element {
     let params = d.editing.and_then(|n| graph.node(n)).map(|n| n.params.clone()).unwrap_or_default();
     let error_line = errors.iter().next().map(|(n, m)| (graph.node(*n).map(|n| n.title()).unwrap_or_default(), m.clone())).or(global_error.map(|m| (String::new(), m)));
     let editing_title = editing.and_then(|n| graph.node(n)).map(|n| n.title());
-    let target_title = if d.target == graph.output { "the output".to_string() } else { graph.node(d.target).map(|n| n.title()).unwrap_or_default() };
+    let target_title = if d.target.node == graph.output { "the output".to_string() } else { graph.link_title(d.target) };
     let badge = editing_title.map(|t| match (d.locked, d.overlay_space.is_some()) {
         (true, true) => format!("Editing {t} · showing {target_title}"),
         (true, false) => format!("{t} does not feed {target_title} · double-click it in the graph to view it"),
-        _ if editing != Some(d.target) => format!("Editing {t} · showing its input"),
+        _ if editing != Some(d.target.node) => format!("Editing {t} · showing its input"),
         _ => format!("Previewing {t}"),
     });
     drop(graph);
@@ -406,6 +406,42 @@ fn render_overlay(
                         },
                     }
                     text { class: "overlay-label", x: "{x1 + 6.0}", y: "{y1 + 16.0}", "axis {px} px" }
+                }
+            }
+        }
+        Overlay::Line { position, horizontal, sides } => {
+            let pos = p.f(position);
+            let (x1, y1, x2, y2) = if horizontal {
+                (sx(0.0) - 20.0, sy(pos), sx(1.0) + 20.0, sy(pos))
+            } else {
+                (sx(pos), sy(0.0) - 20.0, sx(pos), sy(1.0) + 20.0)
+            };
+            let px = (pos * if horizontal { e.h } else { e.w }).round();
+            // Side names next to the line, near its start.
+            let (before, after) = if horizontal {
+                ((x1 + 26.0, y1 - 8.0, "start"), (x1 + 26.0, y1 + 18.0, "start"))
+            } else {
+                ((x1 - 8.0, y1 + 38.0, "end"), (x1 + 8.0, y1 + 38.0, "start"))
+            };
+            let (b_text, a_text) = if horizontal { (format!("▲ {}", sides[0]), format!("▼ {}", sides[1])) } else { (format!("◀ {}", sides[0]), format!("{} ▶", sides[1])) };
+            rsx! {
+                g { key: "{i}",
+                    line { class: "axis-line split-line", x1: "{x1}", y1: "{y1}", x2: "{x2}", y2: "{y2}" }
+                    line {
+                        class: if horizontal { "axis-hit h" } else { "axis-hit v" },
+                        x1: "{x1}",
+                        y1: "{y1}",
+                        x2: "{x2}",
+                        y2: "{y2}",
+                        onpointerdown: move |ev: PointerEvent| {
+                            ev.stop_propagation();
+                            frac_map.set(to_frac);
+                            drag.set(Drag::Axis { node, key: position, horizontal });
+                        },
+                    }
+                    text { class: "overlay-label", x: "{before.0}", y: "{before.1}", text_anchor: "{before.2}", "{b_text}" }
+                    text { class: "overlay-label", x: "{after.0}", y: "{after.1}", text_anchor: "{after.2}", "{a_text}" }
+                    text { class: "overlay-label muted-label", x: if horizontal { x2 - 26.0 } else { x1 + 8.0 }, y: if horizontal { y1 - 8.0 } else { y2 - 8.0 }, text_anchor: if horizontal { "end" } else { "start" }, "{px} px" }
                 }
             }
         }

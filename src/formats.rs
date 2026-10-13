@@ -6,7 +6,7 @@
 use crate::engine::geom::{Rect, Request};
 use crate::engine::tile::{unpremul, CpuTile};
 use crate::engine::{render_to_cpu, Engine};
-use crate::graph::{Graph, NodeId};
+use crate::graph::{Graph, Link};
 use anyhow::Context;
 use std::io::{Cursor, Write};
 
@@ -204,7 +204,7 @@ fn to8(v: f32) -> u8 {
 pub struct GraphBands<'a> {
     pub engine: &'a Engine,
     pub graph: &'a Graph,
-    pub target: NodeId,
+    pub target: Link,
     pub width: u32,
     pub height: u32,
     pub band_rows: u32,
@@ -218,12 +218,12 @@ impl<'a> GraphBands<'a> {
     pub fn new(
         engine: &'a Engine,
         graph: &'a Graph,
-        target: NodeId,
+        target: Link,
         cancel: &'a (dyn Fn() -> bool + Sync),
         progress: &'a dyn Fn(f32),
         status: &'a (dyn Fn(Option<&str>) + Sync),
     ) -> Self {
-        let (width, height) = graph.extent_of(target).pixels();
+        let (width, height) = graph.extent_of(target.node).pixels();
         // ~4 Mpx per band keeps the float working set around 64 MiB.
         let band_rows = ((4u64 << 20) / width as u64).clamp(1, height as u64) as u32;
         Self { engine, graph, target, width, height, band_rows, y: 0, cancel, progress, status }
@@ -242,7 +242,7 @@ impl BandSource for GraphBands<'_> {
             return Ok(None);
         }
         let rows = self.band_rows.min(self.height - self.y);
-        let extent = self.graph.extent_of(self.target);
+        let extent = self.graph.extent_of(self.target.node);
         let mut req = Request::new(extent, Rect::new(0.0, self.y as f64, self.width as f64, rows as f64), self.width, rows);
         req.exact = true;
         let tile = render_to_cpu(self.engine, self.graph, self.target, &req, self.cancel, self.status)?;
@@ -255,7 +255,7 @@ impl BandSource for GraphBands<'_> {
 pub fn export(
     engine: &Engine,
     graph: &Graph,
-    target: NodeId,
+    target: Link,
     codec: &dyn Codec,
     opts: &EncodeOptions,
     out: &mut dyn Write,

@@ -3,7 +3,7 @@ use super::session;
 use super::state::{fmt_size, App, ExportState};
 use super::WorkerHandle;
 use crate::formats::{self, EncodeOptions};
-use crate::graph::NodeId;
+use crate::graph::Link;
 use crate::worker::{ExportDest, ExportJob};
 use dioxus::prelude::*;
 
@@ -18,7 +18,7 @@ pub fn ConflictDialog() -> Element {
     let ports = node.kind().inputs();
     let title = node.title();
     let name = |p: usize| {
-        let src = node.inputs[p].and_then(|s| g.node(s)).map(|n| n.title()).unwrap_or_default();
+        let src = node.inputs[p].map(|l| g.link_title(l)).unwrap_or_default();
         format!("{} ({src})", ports.get(p).copied().unwrap_or("input"))
     };
     let (na, nb) = (name(c.a.0), name(c.b.0));
@@ -64,16 +64,20 @@ pub fn ConflictDialog() -> Element {
     }
 }
 
-pub fn open_export(mut app: App, node: Option<NodeId>) {
+/// Opens the export dialog for `target` (a node output), or for what the
+/// image view shows.
+pub fn open_export(mut app: App, target: Option<Link>) {
     let d = app.displayed();
-    if node.is_none() && d.empty {
+    if target.is_none() && d.empty {
         return;
     }
-    let target = node.unwrap_or(d.export_target);
+    let target = target.unwrap_or(d.export_target);
     let g = app.graph.peek();
-    let Some(n) = g.node(target) else { return };
-    let title = if target == g.output { "Output".to_string() } else { n.title() };
-    let size = g.extent_of(target).pixels();
+    if !g.has_link(target) {
+        return;
+    }
+    let title = if target.node == g.output { "Output".to_string() } else { g.link_title(target) };
+    let size = g.extent_of(target.node).pixels();
     drop(g);
     let stem: String = title.rsplit_once('.').map(|(s, _)| s.to_string()).unwrap_or(title.clone());
     let stem: String = stem.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();

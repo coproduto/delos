@@ -3,7 +3,7 @@
 //! binary tree.
 
 use super::state::{fmt_size, App};
-use crate::graph::{Graph, NodeId};
+use crate::graph::{Graph, Link, NodeId};
 use crate::nodes::{ids, Category};
 use dioxus::prelude::*;
 use std::collections::HashMap;
@@ -25,7 +25,7 @@ pub enum PortRef {
 struct Row {
     label: String,
     port: PortRef,
-    source: Option<NodeId>,
+    source: Option<Link>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -36,16 +36,23 @@ struct DNode {
     x: f64,
     y: f64,
     rows: Vec<Row>,
-    has_output: bool,
+    /// Output names (none for the output node). A single output sits by
+    /// the title; several get a labelled row each on the right.
+    outputs: Vec<&'static str>,
     class: &'static str,
 }
 
 impl DNode {
     fn height(&self) -> f64 {
-        HEADER + ROW * self.rows.len() as f64 + PAD
+        let rows = if self.outputs.len() > 1 { self.rows.len().max(self.outputs.len()) } else { self.rows.len() };
+        HEADER + ROW * rows as f64 + PAD
     }
-    fn out_port(&self) -> (f64, f64) {
-        (self.x + NODE_W, self.y + HEADER / 2.0)
+    /// Top of output `k`'s port, relative to the node.
+    fn out_top(&self, k: usize) -> f64 {
+        if self.outputs.len() > 1 { HEADER + ROW * k as f64 + ROW / 2.0 } else { HEADER / 2.0 }
+    }
+    fn out_port(&self, k: usize) -> (f64, f64) {
+        (self.x + NODE_W, self.y + self.out_top(k))
     }
     fn in_port(&self, row: usize) -> (f64, f64) {
         (self.x, self.y + HEADER + ROW * row as f64 + ROW / 2.0)
@@ -91,16 +98,18 @@ fn build(g: &Graph) -> Vec<DNode> {
             Category::Source => "cat-source",
             Category::Generator => "cat-generator",
             Category::Filter => "cat-filter",
+            Category::Split => "cat-split",
             Category::Combine => "cat-combine",
             Category::Output => "cat-output",
         };
-        out.push(DNode { id: n.id, title, sub, x: n.pos.0, y: n.pos.1, rows, has_output: n.kind != ids::OUTPUT, class });
+        let outputs = if n.kind == ids::OUTPUT { Vec::new() } else { k.outputs().to_vec() };
+        out.push(DNode { id: n.id, title, sub, x: n.pos.0, y: n.pos.1, rows, outputs, class });
     }
     out
 }
 
-/// Connects `from` to a port (handling layer-stack ports).
-pub fn connect_port(app: App, from: NodeId, port: PortRef) {
+/// Connects an output to a port (handling layer-stack ports).
+pub fn connect_port(app: App, from: Link, port: PortRef) {
     let mut err = None;
     app.edit(|g| match port {
         PortRef::Input(n, p) => {
@@ -109,7 +118,7 @@ pub fn connect_port(app: App, from: NodeId, port: PortRef) {
             }
         }
         PortRef::Layer(head, _) | PortRef::AddLayer(head) => {
-            if g.depends_on(from, head) {
+            if g.depends_on(from.node, head) {
                 err = Some("that connection would create a cycle".into());
                 return;
             }
@@ -173,7 +182,7 @@ enum GDrag {
     None,
     Pan { x: f64, y: f64, px: f64, py: f64 },
     Node { id: NodeId, dx: f64, dy: f64 },
-    Wire { from: NodeId, x: f64, y: f64 },
+    Wire { from: Link, x: f64, y: f64 },
 }
 
 #[component]
@@ -216,8 +225,8 @@ pub fn GraphView() -> Element {
     let mut edges = Vec::new();
     for n in &nodes {
         for (r, row) in n.rows.iter().enumerate() {
-            if let Some(src) = row.source.and_then(|s| by_id.get(&s)) {
-                let (x1, y1) = src.out_port();
+            if let Some((src, out)) = row.source.and_then(|s| by_id.get(&s.node).map(|n| (n, s.output))) {
+                let (x1, y1) = src.out_port(out);
                 let (x2, y2) = n.in_port(r);
                 let dx = ((x2 - x1).abs() / 2.0).max(50.0);
                 let d = format!("M{x1},{y1} C{},{y1} {},{y2} {x2},{y2}", x1 + dx, x2 - dx);
@@ -227,8 +236,8 @@ pub fn GraphView() -> Element {
         }
     }
     let wire = match drag() {
-        GDrag::Wire { from, x, y } => by_id.get(&from).map(|s| {
-            let (x1, y1) = s.out_port();
+        GDrag::Wire { from, x, y } => by_id.get(&from.node).map(|s| {
+            let (x1, y1) = s.out_port(from.output);
             let dx = ((x - x1).abs() / 2.0).max(50.0);
             format!("M{x1},{y1} C{},{y1} {},{y} {x},{y}", x1 + dx, x - dx)
         }),
@@ -312,7 +321,13 @@ pub fn GraphView() -> Element {
                         let mut cls = format!("node {}", n.class);
                         if selected == Some(id) { cls.push_str(" selected"); }
                         if errors.contains_key(&id) { cls.push_str(" error"); }
-                        let is_pinned = pinned == Some(id);
+                        let pinned_out = pinned.filter(|p| p.node == id).map(|p| p.output);
+                        let is_pinned = pinned_out.is_some();
+                        let multi = n.outputs.len() > 1;
+                        let viewing = match pinned_out {
+                            Some(o) if multi => format!(" · viewing {}", n.outputs.get(o).copied().unwrap_or("")),
+                            _ => " · viewing".to_string(),
+                        };
                         let h = n.height();
                         rsx! {
                             div {
@@ -335,7 +350,7 @@ pub fn GraphView() -> Element {
                                     if id == output || is_pinned {
                                         app.pinned.set(None);
                                     } else {
-                                        app.pinned.set(Some(id));
+                                        app.pinned.set(Some(id.into()));
                                     }
                                     app.select(None);
                                 },
@@ -343,20 +358,36 @@ pub fn GraphView() -> Element {
                                     div { class: "node-title", "{n.title}" }
                                     div { class: "node-sub",
                                         "{n.sub}"
-                                        if is_pinned { span { class: "viewing", " · viewing" } }
+                                        if is_pinned { span { class: "viewing", "{viewing}" } }
                                     }
                                 }
-                                if n.has_output {
-                                    div {
-                                        class: "port out",
-                                        style: "top:{HEADER / 2.0 - 7.0}px;",
-                                        title: "Drag to an input to connect",
-                                        onpointerdown: move |e: PointerEvent| {
-                                            e.stop_propagation();
-                                            let c = e.client_coordinates();
-                                            let (gx, gy) = to_graph(c.x, c.y);
-                                            drag.set(GDrag::Wire { from: id, x: gx, y: gy });
-                                        },
+                                for (o , name) in n.outputs.iter().copied().enumerate() {
+                                    {
+                                        let top = n.out_top(o);
+                                        let from = Link::new(id, o);
+                                        let here = pinned_out == Some(o);
+                                        rsx! {
+                                            div {
+                                                key: "out{o}",
+                                                class: if here { "port out viewing-port" } else { "port out" },
+                                                style: "top:{top - 7.0}px;",
+                                                title: if multi { "“{name}” · drag to an input to connect · double-click to view" } else { "Drag to an input to connect" },
+                                                onpointerdown: move |e: PointerEvent| {
+                                                    e.stop_propagation();
+                                                    let c = e.client_coordinates();
+                                                    let (gx, gy) = to_graph(c.x, c.y);
+                                                    drag.set(GDrag::Wire { from, x: gx, y: gy });
+                                                },
+                                                ondoubleclick: move |e| {
+                                                    e.stop_propagation();
+                                                    app.pinned.set(if here { None } else { Some(from) });
+                                                    app.select(None);
+                                                },
+                                            }
+                                            if multi {
+                                                span { key: "outl{o}", class: "out-label", style: "top:{top - 9.0}px;", "{name}" }
+                                            }
+                                        }
                                     }
                                 }
                                 for (r , row) in n.rows.iter().cloned().enumerate() {

@@ -64,7 +64,7 @@ impl NodeKind for BackgroundRemoval {
         let res: f64 = p.choice("resolution").parse().unwrap_or(1024.0);
 
         let mut h = std::collections::hash_map::DefaultHasher::new();
-        ("rembg", ctx.node_hash(input), p.i("threshold"), p.b("binary"), p.b("sticker"), p.choice("resolution"), p.text("model")).hash(&mut h);
+        ("rembg", ctx.link_hash(input), p.i("threshold"), p.b("binary"), p.b("sticker"), p.choice("resolution"), p.text("model")).hash(&mut h);
         extent.w.to_bits().hash(&mut h);
         extent.h.to_bits().hash(&mut h);
         let key = h.finish();

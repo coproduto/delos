@@ -1,5 +1,6 @@
 //! The document model: a DAG of nodes. Edges are stored on the consumer
-//! side (`Node::inputs[port] = Some(producer)`).
+//! side (`Node::inputs[port] = Some(link)`), where a [`Link`] names one
+//! output of the producing node (most nodes have a single output).
 
 use crate::engine::geom::{Map2, Size};
 use crate::engine::source::SourceImage;
@@ -11,12 +12,33 @@ use std::sync::Arc;
 pub type NodeId = u64;
 pub type ImageId = u64;
 
+/// One output of a node: what an input port is connected to, and what the
+/// image view and export show.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Link {
+    pub node: NodeId,
+    pub output: usize,
+}
+
+impl Link {
+    pub const fn new(node: NodeId, output: usize) -> Self {
+        Self { node, output }
+    }
+}
+
+/// A node's first (usually only) output.
+impl From<NodeId> for Link {
+    fn from(node: NodeId) -> Self {
+        Link { node, output: 0 }
+    }
+}
+
 #[derive(Clone)]
 pub struct Node {
     pub id: NodeId,
     pub kind: &'static str,
     pub params: Params,
-    pub inputs: Vec<Option<NodeId>>,
+    pub inputs: Vec<Option<Link>>,
     pub pos: (f64, f64),
     pub label: Option<String>,
 }
@@ -28,6 +50,16 @@ impl Node {
 
     pub fn title(&self) -> String {
         self.label.clone().unwrap_or_else(|| self.kind().name().to_string())
+    }
+
+    /// The nodes this node reads from (one entry per connected port).
+    pub fn input_nodes(&self) -> impl Iterator<Item = NodeId> + '_ {
+        self.inputs.iter().flatten().map(|l| l.node)
+    }
+
+    /// The node connected to input `port`, if any.
+    pub fn input_node(&self, port: usize) -> Option<NodeId> {
+        self.inputs.get(port).copied().flatten().map(|l| l.node)
     }
 }
 
@@ -45,7 +77,7 @@ pub struct Graph {
 pub struct StackChain {
     pub head: NodeId,
     pub stacks: Vec<NodeId>,
-    pub layers: Vec<Option<NodeId>>,
+    pub layers: Vec<Option<Link>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -116,6 +148,22 @@ impl Graph {
         self.nodes.get(&id)
     }
 
+    /// Display name of an output: the node's title, plus the output's name
+    /// for nodes with several outputs ("Vertical Split · left").
+    pub fn link_title(&self, link: Link) -> String {
+        let Some(n) = self.nodes.get(&link.node) else { return String::new() };
+        let outputs = n.kind().outputs();
+        match outputs.get(link.output) {
+            Some(o) if outputs.len() > 1 => format!("{} · {o}", n.title()),
+            _ => n.title(),
+        }
+    }
+
+    /// Whether `link` names an existing output.
+    pub fn has_link(&self, link: Link) -> bool {
+        self.nodes.get(&link.node).is_some_and(|n| link.output < n.kind().outputs().len())
+    }
+
     pub fn node_mut(&mut self, id: NodeId) -> Option<&mut Node> {
         self.nodes.get_mut(&id)
     }
@@ -133,14 +181,19 @@ impl Graph {
             return;
         }
         self.nodes.remove(&id);
+        self.unlink(id);
+        self.gc_images();
+    }
+
+    /// Disconnects every input reading from any output of `id`.
+    fn unlink(&mut self, id: NodeId) {
         for n in self.nodes.values_mut() {
             for i in n.inputs.iter_mut() {
-                if *i == Some(id) {
+                if i.is_some_and(|l| l.node == id) {
                     *i = None;
                 }
             }
         }
-        self.gc_images();
     }
 
     fn gc_images(&mut self) {
@@ -149,12 +202,18 @@ impl Graph {
         self.images.retain(|k, _| used.contains(&(*k as i64)));
     }
 
+    /// `(consumer, port)` for every input reading any output of `id`.
     pub fn consumers(&self, id: NodeId) -> Vec<(NodeId, usize)> {
+        self.links_from(id).into_iter().map(|(_, c, p)| (c, p)).collect()
+    }
+
+    /// `(link, consumer, port)` for every input reading any output of `id`.
+    pub fn links_from(&self, id: NodeId) -> Vec<(Link, NodeId, usize)> {
         let mut v = Vec::new();
         for n in self.nodes.values() {
             for (port, i) in n.inputs.iter().enumerate() {
-                if *i == Some(id) {
-                    v.push((n.id, port));
+                if let Some(l) = i.filter(|l| l.node == id) {
+                    v.push((l, n.id, port));
                 }
             }
         }
@@ -173,21 +232,27 @@ impl Graph {
                 continue;
             }
             if let Some(node) = self.nodes.get(&n) {
-                stack.extend(node.inputs.iter().flatten());
+                stack.extend(node.input_nodes());
             }
         }
         false
     }
 
-    /// Connects `from`'s output to `to`'s input `port`, refusing cycles.
-    pub fn connect(&mut self, from: NodeId, to: NodeId, port: usize) -> Result<(), String> {
-        if !self.nodes.contains_key(&from) || !self.nodes.contains_key(&to) {
+    /// Connects an output (a node's first one, or a [`Link`]) to `to`'s
+    /// input `port`, refusing cycles.
+    pub fn connect(&mut self, from: impl Into<Link>, to: NodeId, port: usize) -> Result<(), String> {
+        let from = from.into();
+        let Some(src) = self.nodes.get(&from.node) else { return Err("unknown node".into()) };
+        if !self.nodes.contains_key(&to) {
             return Err("unknown node".into());
         }
-        if from == self.output {
+        if from.node == self.output {
             return Err("the output node has no outputs".into());
         }
-        if self.depends_on(from, to) {
+        if from.output >= src.kind().outputs().len() {
+            return Err("no such output".into());
+        }
+        if self.depends_on(from.node, to) {
             return Err("that connection would create a cycle".into());
         }
         let n = self.nodes.get_mut(&to).unwrap();
@@ -216,6 +281,7 @@ impl Graph {
         memo
     }
 
+    /// A node's size; all outputs of a node share it.
     pub fn size_of(&self, id: NodeId) -> Option<Size> {
         self.size_memo(id, &mut HashMap::new())
     }
@@ -225,7 +291,7 @@ impl Graph {
             return *s;
         }
         let Some(n) = self.nodes.get(&id) else { return None };
-        let inputs: Vec<Option<Size>> = n.inputs.iter().map(|i| i.and_then(|i| self.size_memo(i, memo))).collect();
+        let inputs: Vec<Option<Size>> = n.inputs.iter().map(|i| i.and_then(|i| self.size_memo(i.node, memo))).collect();
         let s = n.kind().size(n, &inputs);
         memo.insert(id, s);
         s
@@ -266,7 +332,7 @@ impl Graph {
         }
         let n = self.nodes.get(&at)?;
         for (port, input) in n.inputs.iter().enumerate() {
-            let Some(i) = *input else { continue };
+            let Some(i) = input.map(|l| l.node) else { continue };
             let (im, ie) = n.kind().input_map(n, port, extent, sizes.get(&i).copied().flatten());
             if let Some(r) = self.space_map_rec(i, to, im.after(&m), ie, sizes, dead_ends) {
                 return Some(r);
@@ -284,7 +350,7 @@ impl Graph {
             return None;
         }
         let sizes: Vec<(usize, Size)> =
-            n.inputs.iter().enumerate().filter_map(|(p, i)| i.and_then(|i| self.size_of(i)).map(|s| (p, s))).collect();
+            n.inputs.iter().enumerate().filter_map(|(p, i)| i.and_then(|i| self.size_of(i.node)).map(|s| (p, s))).collect();
         for a in 0..sizes.len() {
             for b in a + 1..sizes.len() {
                 let (sa, sb) = (sizes[a].1, sizes[b].1);
@@ -300,11 +366,11 @@ impl Graph {
     /// is resized to `size`.
     pub fn insert_resize(&mut self, node: NodeId, port: usize, size: Size) -> Option<NodeId> {
         let src = self.nodes.get(&node)?.inputs.get(port).copied().flatten()?;
-        let (sp, np) = (self.nodes[&src].pos, self.nodes[&node].pos);
+        let (sp, np) = (self.nodes[&src.node].pos, self.nodes[&node].pos);
         let r = self.add_node(ids::RESIZE, ((sp.0 + np.0) / 2.0, (sp.1 + np.1) / 2.0 + 40.0));
         nodes::resize_to(&mut self.nodes.get_mut(&r).unwrap().params, size);
         self.nodes.get_mut(&r).unwrap().inputs[0] = Some(src);
-        self.nodes.get_mut(&node).unwrap().inputs[port] = Some(r);
+        self.nodes.get_mut(&node).unwrap().inputs[port] = Some(r.into());
         Some(r)
     }
 
@@ -328,7 +394,7 @@ impl Graph {
             }
             for i in &n.inputs {
                 match i {
-                    Some(i) => self.hash_of(*i, memo).hash(&mut hs),
+                    Some(i) => self.link_hash(*i, memo).hash(&mut hs),
                     None => 0u64.hash(&mut hs),
                 }
             }
@@ -336,6 +402,17 @@ impl Graph {
         let h = hs.finish();
         memo.insert(id, h);
         h
+    }
+
+    /// Structural hash of one output's image.
+    pub fn link_hash(&self, link: Link, memo: &mut HashMap<NodeId, u64>) -> u64 {
+        let h = self.hash_of(link.node, memo);
+        if link.output == 0 {
+            return h;
+        }
+        let mut hs = std::collections::hash_map::DefaultHasher::new();
+        (h, link.output).hash(&mut hs);
+        hs.finish()
     }
 
     // ----- layer stacks --------------------------------------------------
@@ -373,9 +450,9 @@ impl Graph {
             let n = &self.nodes[&cur];
             layers.push(n.inputs[0]);
             match n.inputs[1] {
-                Some(next) if self.is_interior_stack(next) => {
-                    stacks.push(next);
-                    cur = next;
+                Some(next) if self.is_interior_stack(next.node) => {
+                    stacks.push(next.node);
+                    cur = next.node;
                 }
                 Some(other) => {
                     layers.push(Some(other));
@@ -390,7 +467,7 @@ impl Graph {
     /// Rewrites a layer stack so it contains exactly `layers` (front first),
     /// reusing the existing stack nodes. The head keeps its id so whatever
     /// consumes the stack stays connected.
-    pub fn set_stack_layers(&mut self, head: NodeId, layers: Vec<Option<NodeId>>) {
+    pub fn set_stack_layers(&mut self, head: NodeId, layers: Vec<Option<Link>>) {
         let Some(chain) = self.stack_chain(head) else { return };
         let head = chain.head;
         let needed = layers.len().saturating_sub(1).max(1);
@@ -403,17 +480,11 @@ impl Graph {
         }
         for extra in stacks.split_off(needed) {
             self.nodes.remove(&extra);
-            for n in self.nodes.values_mut() {
-                for i in n.inputs.iter_mut() {
-                    if *i == Some(extra) {
-                        *i = None;
-                    }
-                }
-            }
+            self.unlink(extra);
         }
         for (k, s) in stacks.iter().enumerate() {
             let front = layers.get(k).copied().flatten();
-            let back = if k + 1 < stacks.len() { Some(stacks[k + 1]) } else { layers.get(k + 1).copied().flatten() };
+            let back = if k + 1 < stacks.len() { Some(stacks[k + 1].into()) } else { layers.get(k + 1).copied().flatten() };
             let n = self.nodes.get_mut(s).unwrap();
             n.inputs = vec![front, back];
         }

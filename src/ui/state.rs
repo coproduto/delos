@@ -2,7 +2,7 @@
 //! the struct is `Copy` and lives in a Dioxus context).
 
 use crate::engine::geom::{Map2, Rect, Size};
-use crate::graph::{Graph, NodeId, SizeConflict, StackChain};
+use crate::graph::{Graph, Link, NodeId, SizeConflict, StackChain};
 use crate::nodes::{self, ids, Category, EditView, Value};
 use crate::worker::now_ms;
 use dioxus::prelude::*;
@@ -51,7 +51,7 @@ pub struct Busy {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExportState {
-    pub target: NodeId,
+    pub target: Link,
     pub title: String,
     pub size: (u32, u32),
     pub codec: String,
@@ -74,8 +74,8 @@ pub enum ImportTarget {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Displayed {
-    /// Node whose image is shown.
-    pub target: NodeId,
+    /// The node output whose image is shown.
+    pub target: Link,
     /// Node being edited (its overlays are drawn), if any.
     pub editing: Option<NodeId>,
     /// Maps the shown node's space into the space the editing node's
@@ -87,7 +87,7 @@ pub struct Displayed {
     pub locked: bool,
     /// Node exported by "Export" (the editing node itself when its edit view
     /// shows an input).
-    pub export_target: NodeId,
+    pub export_target: Link,
     pub extent: Size,
     /// The shown node has no size of its own (uses the output canvas).
     pub sizeless: bool,
@@ -109,7 +109,8 @@ pub struct App {
     pub history: Signal<History>,
     pub selected: Signal<Option<NodeId>>,
     pub selected_edge: Signal<Option<(NodeId, usize)>>,
-    pub pinned: Signal<Option<NodeId>>,
+    /// The output was relocated to this node output.
+    pub pinned: Signal<Option<Link>>,
     pub follow_selection: Signal<bool>,
     pub layout: Signal<Layout>,
     pub view: Signal<ViewState>,
@@ -285,7 +286,7 @@ impl App {
         let sel = *self.selected.peek();
         let pin = *self.pinned.peek();
         let sel_ok = sel.is_none_or(|s| g.node(s).is_some());
-        let pin_ok = pin.is_none_or(|p| g.node(p).is_some());
+        let pin_ok = pin.is_none_or(|p| g.has_link(p));
         drop(g);
         if !sel_ok {
             self.selected.set(None);
@@ -347,25 +348,25 @@ impl App {
     /// put and the selected node's controls are drawn over it instead.
     pub fn displayed(&self) -> Displayed {
         let g = self.graph.read();
-        let pinned = self.pinned.read().filter(|p| g.node(*p).is_some());
-        let base = pinned.unwrap_or(g.output);
+        let pinned = self.pinned.read().filter(|p| g.has_link(*p));
+        let base = pinned.unwrap_or(g.output.into());
         let sel = self.selected.read().filter(|s| g.node(*s).is_some() && *s != g.output);
         let locked = pinned.is_some() || !*self.follow_selection.read();
         let (target, editing, overlay_space) = match sel {
             Some(s) if !locked => {
                 let n = g.node(s).unwrap();
                 let target = match n.kind().edit_view() {
-                    EditView::Output => s,
-                    EditView::Input(p) => n.inputs.get(p).copied().flatten().unwrap_or(s),
+                    EditView::Output => s.into(),
+                    EditView::Input(p) => n.inputs.get(p).copied().flatten().unwrap_or(s.into()),
                 };
-                (target, Some(s), Some((Map2::IDENTITY, g.extent_of(target))))
+                (target, Some(s), Some((Map2::IDENTITY, g.extent_of(target.node))))
             }
             Some(s) => {
                 let n = g.node(s).unwrap();
-                let space = g.space_map(base, s).map(|(m, e)| match n.kind().edit_view() {
+                let space = g.space_map(base.node, s).map(|(m, e)| match n.kind().edit_view() {
                     EditView::Output => (m, e),
                     EditView::Input(p) => {
-                        let input = n.inputs.get(p).copied().flatten().and_then(|i| g.size_of(i));
+                        let input = n.input_node(p).and_then(|i| g.size_of(i));
                         let (im, ie) = n.kind().input_map(n, p, e, input);
                         (im.after(&m), ie)
                     }
@@ -374,14 +375,12 @@ impl App {
             }
             None => (base, None, None),
         };
-        let export_target = if locked { target } else { editing.unwrap_or(target) };
-        let size = g.size_of(target);
-        let empty = {
-            let n = g.node(target).unwrap();
-            n.kind == ids::OUTPUT && n.inputs[0].is_none()
-        };
-        let sizeless = size.is_none() || (g.node(target).unwrap().kind == ids::OUTPUT && g.node(target).unwrap().inputs[0].is_some_and(|i| g.size_of(i).is_none()));
-        Displayed { target, editing, overlay_space, locked, export_target, extent: g.extent_of(target), sizeless, empty }
+        let export_target = if locked { target } else { editing.map(Link::from).unwrap_or(target) };
+        let tn = g.node(target.node).unwrap();
+        let size = g.size_of(target.node);
+        let empty = tn.kind == ids::OUTPUT && tn.inputs[0].is_none();
+        let sizeless = size.is_none() || (tn.kind == ids::OUTPUT && tn.input_node(0).is_some_and(|i| g.size_of(i).is_none()));
+        Displayed { target, editing, overlay_space, locked, export_target, extent: g.extent_of(target.node), sizeless, empty }
     }
 
     // ----- graph operations used by several components ----------------------
@@ -461,7 +460,7 @@ impl App {
                 return;
             }
             let n = g.node(id).unwrap().clone();
-            let connected: Vec<NodeId> = n.inputs.iter().flatten().copied().collect();
+            let connected: Vec<Link> = n.inputs.iter().flatten().copied().collect();
             let consumers = g.consumers(id);
             g.remove_node(id);
             if connected.len() == 1 {
@@ -473,7 +472,7 @@ impl App {
         if *self.selected.peek() == Some(id) {
             self.selected.set(None);
         }
-        if *self.pinned.peek() == Some(id) {
+        if self.pinned.peek().is_some_and(|p| p.node == id) {
             self.pinned.set(None);
         }
     }

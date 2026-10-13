@@ -15,6 +15,18 @@ dx serve --platform ios|android     # mobile (feature `mobile`; untested)
   ORT dynamically. Put `u2net.onnx` in `~/.delos/models/`, set `DELOS_REMBG_MODEL`, or enter a path in the node's settings.
   Install ORT with `brew install onnxruntime`, or point `ORT_DYLIB_PATH` at the library. It is desktop-only.
 
+## Splits
+
+**Vertical Split**, **Horizontal Split** and **Rectangle Split** have two outputs: `left`/`right`, `top`/`bottom`, or `inside`/`outside`.
+Each output keeps the pixels on its side of the border and makes the rest transparent. Every pixel goes to exactly one side (decided by its centre), so stacking the two parts gives back the original.
+This is how localized effects work in Delos, like selections in other editors. For example, split → invert one side → stack it over the other side.
+
+- **Editing:** selecting a split shows its whole input with a draggable border, or a draggable, resizable rectangle.
+- **Graph view:** a split has one labelled port per output. Wires start from a specific output, and double-clicking a port relocates the output to it.
+- **Inspector:** has "View left" / "View right" and per-output export.
+
+Internally, an edge is a `Link` (node and output index). Node kinds declare `outputs()` (one by default) and implement `render_output` when they have several.
+
 ## Projects and quick mode
 
 The first time you import an image, Delos asks whether to start a **project**:
@@ -65,6 +77,7 @@ You can also open a project by dropping it onto the window.
 - A node is written `(kind input… :param value…)`. Inputs come in port order, and `_` leaves a port empty.
 - Every parameter is written, defaults included, so a saved project keeps its meaning if a default changes. When reading, omitted parameters take their defaults, which keeps hand-written expressions short.
 - `(stack front … back)` is a layer stack.
+- Nodes with several outputs are bound with `def`, and their outputs are written `name.output`, e.g. `(def s (split_vertical photo)) (output (stack (invert s.left) s.right))`.
 - `:at (x y)` is the node's position in the graph view, and `:title` sets a custom title. Nodes without `:at` are laid out automatically, so expressions can be written by hand.
 - Saving and loading reproduce the same graph, which renders the same pixels. A 3,400-node graph serializes in about 5 ms and loads in about 16 ms.
 
@@ -80,7 +93,8 @@ cargo test --release --test large_images -- --nocapture     # 16K (16384²) timi
 | `src/expr.rs` (unit) | Expression parsing and printing, round trips, error messages with line:col |
 | `tests/project.rs` | Project layout, input copies, save/load (compared pixel by pixel), verification, unsafe paths, share/import |
 | `tests/project_e2e.rs` | End to end, headless: the app's real state, worker and autosave driven like the UI (prompt, quick mode, autosave, reopen, share, import, errors) |
-| `tests/ui_state.rs` | UI state operations (regression tests) |
+| `tests/split.rs` | Splits: exact partitions, recombination at any scale, localized effects, GPU = CPU |
+| `tests/ui_state.rs` | UI state operations (regression tests; viewing, deleting and inserting splits) |
 | `tests/engine.rs`, `tests/large_images.rs` | Rendering correctness and 16K performance |
 
 On an M1 Pro, a 16K image goes through invert → reflect → overlay-blend with noise → stack with a gradient.
@@ -96,6 +110,7 @@ A 16K generator renders for export in ~1.7 s using about 64 MiB of working memor
 | `src/engine/kernels.rs` | Per-pixel kernels written twice: WGSL (GPU) and Rust (CPU), with the same parameter layout. |
 | `src/engine/gpu.rs` | wgpu compute backend. Tiles stay on the GPU between consecutive GPU kernels. |
 | `src/engine/source.rs` | Imported images: premultiplied RGBA8 mip pyramid. |
+| `src/nodes/split.rs` | Split nodes (two outputs each) and their shared kernel. |
 | `src/nodes/` | Node kinds. Each implements `NodeKind` and is registered in `nodes::registry()`; forms and on-canvas controls come from declarative `ParamDef`/`Overlay`. |
 | `src/graph.rs` | DAG model, size inference, structural hashing, layer-stack chains. |
 | `src/expr.rs` | Delos expressions: the plain-text graph format. |

@@ -261,7 +261,7 @@ fn large_graphs_serialize_quickly() {
             }
             prev = n;
         }
-        layers.push(Some(prev));
+        layers.push(Some(prev.into()));
     }
     let mut deep = g.add_node("checker", (0.0, 0.0));
     for _ in 0..300 {
@@ -269,7 +269,7 @@ fn large_graphs_serialize_quickly() {
         g.connect(deep, n, 0).unwrap();
         deep = n;
     }
-    layers.push(Some(deep));
+    layers.push(Some(deep.into()));
     let stack = g.add_node("stack", (0.0, 0.0));
     g.set_stack_layers(stack, layers);
     let out = g.output;
@@ -338,4 +338,28 @@ fn sync_copies_images_without_a_file_and_moves_out_strays() {
     assert_eq!(decoded.rgba, img.to_rgba8());
     assert!(!p.dir.join("inputs/stray.txt").exists());
     assert!(stash.join("stray.txt").exists());
+}
+
+#[test]
+fn projects_with_splits_round_trip() {
+    let tmp = tempfile::tempdir().unwrap();
+    let p = new_project(tmp.path(), "split");
+    let mut g = Graph::new();
+    let photo = add_image(&mut g, &p, "photo.png", &png(64, 40, 4));
+    let split = g.add_node("split_rect", (0.0, 0.0));
+    g.connect(photo, split, 0).unwrap();
+    g.set_param(split, "x", Value::Float(0.4));
+    let inv = g.add_node("invert", (0.0, 0.0));
+    g.connect(delos::graph::Link::new(split, 0), inv, 0).unwrap();
+    let stack = g.add_node("stack", (0.0, 0.0));
+    g.connect(inv, stack, 0).unwrap();
+    g.connect(delos::graph::Link::new(split, 1), stack, 1).unwrap();
+    let out = g.output;
+    g.connect(stack, out, 0).unwrap();
+    p.save(&g).unwrap();
+    let text = std::fs::read_to_string(p.file()).unwrap();
+    assert!(text.contains(".inside") && text.contains(".outside"), "{text}");
+    let loaded = p.load().unwrap();
+    assert_eq!(expr::to_text(&loaded).unwrap(), text);
+    assert_eq!(render_output(&loaded), render_output(&g));
 }

@@ -9,7 +9,7 @@ pub mod kernels;
 pub mod source;
 pub mod tile;
 
-use crate::graph::{Graph, NodeId};
+use crate::graph::{Graph, Link, NodeId};
 use cache::Cache;
 use geom::{Map2, Request};
 use kernels::{Env, EnvInput, Kernel, MAX_PARAMS};
@@ -151,7 +151,15 @@ impl<'a> Ctx<'a> {
         self.graph.hash_of(id, &mut self.hashes.borrow_mut())
     }
 
-    pub fn render(&self, id: NodeId, req: &Request) -> anyhow::Result<Tile> {
+    /// Structural hash of one output's image (a cache key).
+    pub fn link_hash(&self, link: Link) -> u64 {
+        self.graph.link_hash(link, &mut self.hashes.borrow_mut())
+    }
+
+    /// Renders one output of a node (a node id means its first output).
+    pub fn render(&self, link: impl Into<Link>, req: &Request) -> anyhow::Result<Tile> {
+        let link = link.into();
+        let id = link.node;
         if self.cancelled() {
             return Err(Cancelled.into());
         }
@@ -159,7 +167,7 @@ impl<'a> Ctx<'a> {
         if req.width == 0 || req.height == 0 || req.region.is_empty() {
             return Ok(Tile::Clear { w: req.width, h: req.height });
         }
-        node.kind().render(self, node, req).map_err(|e| {
+        node.kind().render_output(self, node, link.output, req).map_err(|e| {
             if e.is::<NodeError>() || e.is::<Cancelled>() {
                 e
             } else {
@@ -178,7 +186,7 @@ impl<'a> Ctx<'a> {
     }
 
     pub fn input_size(&self, node: &crate::graph::Node, port: usize) -> Option<geom::Size> {
-        node.inputs.get(port).copied().flatten().and_then(|i| self.graph.size_of(i))
+        node.input_node(port).and_then(|i| self.graph.size_of(i))
     }
 
     pub fn has_input(&self, node: &crate::graph::Node, port: usize) -> bool {
@@ -251,7 +259,7 @@ impl<'a> Ctx<'a> {
 pub fn render_to_cpu(
     engine: &Engine,
     graph: &Graph,
-    target: NodeId,
+    target: impl Into<Link>,
     req: &Request,
     cancel: &(dyn Fn() -> bool + Sync),
     status: &(dyn Fn(Option<&str>) + Sync),

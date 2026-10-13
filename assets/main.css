@@ -13,6 +13,7 @@
   --generator: #c78bff;
   --filter: #f0b45a;
   --combine: #6fa0ff;
+  --split: #5fd3c0;
   --output: #e0e0e0;
   color-scheme: dark;
 }
@@ -84,6 +85,8 @@ input[type=color] { width: 38px; height: 26px; padding: 0; border: 1px solid var
 .handle.point { fill: var(--accent); stroke: #fff; }
 .canvas-handle { cursor: nwse-resize; fill: var(--accent); stroke: #fff; }
 .axis-line { stroke: var(--accent); stroke-width: 2; stroke-dasharray: 6 4; }
+.split-line { stroke: var(--split); }
+.muted-label { fill: #c4c7ce; }
 .axis-hit { stroke: transparent; stroke-width: 18; }
 .axis-hit.v { cursor: ew-resize; }
 .axis-hit.h { cursor: ns-resize; }
@@ -116,6 +119,7 @@ input[type=color] { width: 38px; height: 26px; padding: 0; border: 1px solid var
 .cat-source { --c: var(--source); }
 .cat-generator { --c: var(--generator); }
 .cat-filter { --c: var(--filter); }
+.cat-split { --c: var(--split); }
 .cat-combine { --c: var(--combine); }
 .cat-output { --c: var(--output); }
 .node-header { padding: 6px 12px 0; }
@@ -129,6 +133,8 @@ input[type=color] { width: 38px; height: 26px; padding: 0; border: 1px solid var
 .port.out { right: -8px; border-color: var(--c); }
 .port.in { left: -8px; top: 5px; }
 .port.in.connected { background: #8a90a0; }
+.port.out.viewing-port { background: #f0d27a; }
+.out-label { position: absolute; right: 12px; font-size: 11px; color: var(--c); pointer-events: none; }
 .graph.wiring .port.in { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(122,162,255,.25); }
 .graph-tools { position: absolute; left: 8px; bottom: 8px; display: flex; gap: 6px; align-items: center; background: rgba(20,21,24,.85); padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); font-size: 12px; }
 

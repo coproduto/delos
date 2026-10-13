@@ -6,7 +6,7 @@ use super::session::{self, ImportSource};
 use super::{dialogs, WorkerHandle};
 use crate::engine::geom::Size;
 use crate::formats;
-use crate::graph::NodeId;
+use crate::graph::{Link, NodeId};
 use crate::nodes::{self, ids, Axis, Category, ParamDef, ParamKind, Params, Value};
 use dioxus::prelude::*;
 
@@ -65,24 +65,30 @@ fn NodePanel(id: NodeId) -> Element {
     let param_extent = match k.edit_view() {
         nodes::EditView::Output => extent,
         nodes::EditView::Input(p) => {
-            let input = node.inputs.get(p).copied().flatten().and_then(|i| graph.size_of(i));
+            let input = node.input_node(p).and_then(|i| graph.size_of(i));
             k.input_map(&node, p, extent, input).1
         }
     };
     let is_output = id == graph.output;
     let chain = graph.stack_chain(id);
     let consumers = graph.consumers(id).len();
-    // Input candidates: every node that would not create a cycle.
-    let candidates: Vec<(NodeId, String)> = graph
+    // Input candidates: every node output that would not create a cycle.
+    let candidates: Vec<(Link, String)> = graph
         .nodes
         .values()
         .filter(|n| n.id != id && n.kind != ids::OUTPUT && !graph.depends_on(n.id, id) && !graph.is_interior_stack(n.id))
-        .map(|n| (n.id, n.title()))
+        .flat_map(|n| (0..n.kind().outputs().len()).map(move |o| Link::new(n.id, o)))
+        .map(|l| (l, graph.link_title(l)))
         .collect();
-    let input_titles: Vec<Option<NodeId>> = node.inputs.clone();
+    let input_titles: Vec<Option<Link>> = node.inputs.clone();
     drop(graph);
     let error = app.errors.read().get(&id).cloned();
-    let pinned = *app.pinned.read() == Some(id);
+    // Which of this node's outputs the output is relocated to, if any.
+    let pinned_output = app.pinned.read().filter(|p| p.node == id).map(|p| p.output);
+    let outputs = k.outputs();
+    let multi = outputs.len() > 1;
+    let export_link = Link::new(id, pinned_output.unwrap_or(0));
+    let export_label = if multi { format!("Export {}…", outputs[export_link.output]) } else { "Export…".to_string() };
     let title = node.title();
     let size_text = match size {
         Some(s) if is_output => format!("Output size {}", fmt_size(s)),
@@ -123,15 +129,29 @@ fn NodePanel(id: NodeId) -> Element {
             }
             if !is_output {
                 div { class: "actions",
-                    button {
-                        class: if pinned { "btn active" } else { "btn" },
-                        title: "Temporarily relocate the output to this node",
-                        onclick: move |_| {
-                            if pinned { app.pinned.set(None) } else { app.pinned.set(Some(id)) }
-                        },
-                        if pinned { "Viewing ✓" } else { "View as output" }
+                    for (o , name) in outputs.iter().enumerate() {
+                        {
+                            let viewing = pinned_output == Some(o);
+                            let label = match (multi, viewing) {
+                                (false, false) => "View as output".to_string(),
+                                (false, true) => "Viewing ✓".to_string(),
+                                (true, false) => format!("View {name}"),
+                                (true, true) => format!("Viewing {name} ✓"),
+                            };
+                            rsx! {
+                                button {
+                                    key: "{o}",
+                                    class: if viewing { "btn active" } else { "btn" },
+                                    title: "Temporarily relocate the output to this node",
+                                    onclick: move |_| {
+                                        if viewing { app.pinned.set(None) } else { app.pinned.set(Some(Link::new(id, o))) }
+                                    },
+                                    "{label}"
+                                }
+                            }
+                        }
                     }
-                    button { class: "btn", onclick: move |_| dialogs::open_export(app, Some(id)), "Export…" }
+                    button { class: "btn", onclick: move |_| dialogs::open_export(app, Some(export_link)), "{export_label}" }
                     button { class: "btn danger", onclick: move |_| app.delete_node(id), "Delete" }
                 }
             }
@@ -146,14 +166,20 @@ fn NodePanel(id: NodeId) -> Element {
                             select {
                                 onchange: move |e| {
                                     let v = e.value();
-                                    match v.parse::<NodeId>() {
-                                        Ok(src) => super::graph_view::connect_port(app, src, super::graph_view::PortRef::Input(id, port)),
-                                        Err(_) => app.edit(|g| g.disconnect(id, port)),
+                                    let link = v.split_once(':').and_then(|(n, o)| Some(Link::new(n.parse().ok()?, o.parse().ok()?)));
+                                    match link {
+                                        Some(src) => super::graph_view::connect_port(app, src, super::graph_view::PortRef::Input(id, port)),
+                                        None => app.edit(|g| g.disconnect(id, port)),
                                     }
                                 },
                                 option { value: "", selected: input_titles[port].is_none(), "— none —" }
-                                for (cid , ct) in candidates.iter().cloned() {
-                                    option { key: "{cid}", value: "{cid}", selected: input_titles[port] == Some(cid), "{ct}" }
+                                for (cl , ct) in candidates.iter().cloned() {
+                                    option {
+                                        key: "{cl.node}:{cl.output}",
+                                        value: "{cl.node}:{cl.output}",
+                                        selected: input_titles[port] == Some(cl),
+                                        "{ct}"
+                                    }
                                 }
                             }
                         }
@@ -380,16 +406,16 @@ fn LayerStack(head: NodeId) -> Element {
     let worker = use_context::<WorkerHandle>();
     let Some(chain) = app.stack_chain(head) else { return rsx! {} };
     let graph = app.graph.read();
-    let rows: Vec<(usize, Option<NodeId>, String, bool)> = chain
+    let rows: Vec<(usize, Option<Link>, String, bool)> = chain
         .layers
         .iter()
         .enumerate()
-        .map(|(i, l)| match l.and_then(|l| graph.node(l)) {
+        .map(|(i, l)| match l.and_then(|l| graph.node(l.node)) {
             Some(n) if n.kind == ids::DISABLE => {
-                let inner = n.inputs[0].and_then(|x| graph.node(x)).map(|x| x.title()).unwrap_or("(empty)".into());
+                let inner = n.inputs[0].map(|x| graph.link_title(x)).unwrap_or("(empty)".into());
                 (i, *l, inner, false)
             }
-            Some(n) => (i, *l, n.title(), true),
+            Some(_) => (i, *l, graph.link_title(l.unwrap()), true),
             None => (i, None, "(empty slot)".into(), true),
         })
         .collect();
@@ -399,7 +425,7 @@ fn LayerStack(head: NodeId) -> Element {
     let generators: Vec<&'static dyn nodes::NodeKind> =
         nodes::registry().iter().copied().filter(|k| k.category() == Category::Generator).collect();
 
-    let set_layers = move |f: Box<dyn FnOnce(&mut Vec<Option<NodeId>>, &mut crate::graph::Graph)>| {
+    let set_layers = move |f: Box<dyn FnOnce(&mut Vec<Option<Link>>, &mut crate::graph::Graph)>| {
         app.edit(|g| {
             if let Some(chain) = g.stack_chain(head) {
                 let mut layers = chain.layers.clone();
@@ -422,14 +448,14 @@ fn LayerStack(head: NodeId) -> Element {
                             onclick: move |_| {
                                 set_layers(Box::new(move |layers, g| {
                                     let Some(l) = layers[i] else { return };
-                                    let n = g.node(l).unwrap().clone();
+                                    let n = g.node(l.node).unwrap().clone();
                                     if n.kind == ids::DISABLE {
                                         layers[i] = n.inputs[0];
-                                        g.remove_node(l);
+                                        g.remove_node(l.node);
                                     } else {
                                         let d = g.add_node(ids::DISABLE, (n.pos.0 + 100.0, n.pos.1 + 20.0));
                                         let _ = g.connect(l, d, 0);
-                                        layers[i] = Some(d);
+                                        layers[i] = Some(d.into());
                                     }
                                 }));
                             },
@@ -437,7 +463,7 @@ fn LayerStack(head: NodeId) -> Element {
                         }
                         span {
                             class: "layer-name",
-                            onclick: move |_| if let Some(l) = layer { app.clone().select(Some(l)) },
+                            onclick: move |_| if let Some(l) = layer { app.clone().select(Some(l.node)) },
                             "{name}"
                         }
                         button {
@@ -485,7 +511,7 @@ fn LayerStack(head: NodeId) -> Element {
                             set_layers(Box::new(move |l, g| {
                                 let p = g.node(head).map(|n| n.pos).unwrap_or_default();
                                 let n = g.add_node(k.id(), (p.0 - 220.0, p.1 - 60.0));
-                                l.insert(0, Some(n));
+                                l.insert(0, Some(n.into()));
                             }));
                         }
                     },
