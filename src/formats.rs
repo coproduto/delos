@@ -263,6 +263,62 @@ pub fn export(
     progress: &dyn Fn(f32),
     status: &(dyn Fn(Option<&str>) + Sync),
 ) -> anyhow::Result<()> {
-    let mut src = GraphBands::new(engine, graph, target, cancel, progress, status);
-    codec.encode(&mut src, out, opts)
+    #[cfg(feature = "native")]
+    {
+        // Render on another thread so encoding a band overlaps rendering the
+        // next one; the channel keeps at most one finished band waiting.
+        let (width, height) = graph.extent_of(target.node).pixels();
+        std::thread::scope(|s| {
+            let (tx, rx) = std::sync::mpsc::sync_channel(1);
+            s.spawn(move || {
+                let no_progress = |_: f32| {};
+                let mut bands = GraphBands::new(engine, graph, target, cancel, &no_progress, status);
+                while let Some(band) = bands.next_band().transpose() {
+                    let failed = band.is_err();
+                    // A failed send means the encoder stopped early.
+                    if tx.send(band).is_err() || failed {
+                        break;
+                    }
+                }
+            });
+            let mut src = Prefetched { width, height, done: 0, rx, progress };
+            let r = codec.encode(&mut src, out, opts);
+            // Unblocks the render thread if encoding stopped early.
+            drop(src);
+            r
+        })
+    }
+    #[cfg(not(feature = "native"))]
+    {
+        let mut src = GraphBands::new(engine, graph, target, cancel, progress, status);
+        codec.encode(&mut src, out, opts)
+    }
+}
+
+/// Bands rendered ahead on another thread (see [`export`]).
+#[cfg(feature = "native")]
+struct Prefetched<'a> {
+    width: u32,
+    height: u32,
+    done: u32,
+    rx: std::sync::mpsc::Receiver<anyhow::Result<(u32, Vec<u8>)>>,
+    progress: &'a dyn Fn(f32),
+}
+
+#[cfg(feature = "native")]
+impl BandSource for Prefetched<'_> {
+    fn width(&self) -> u32 {
+        self.width
+    }
+    fn height(&self) -> u32 {
+        self.height
+    }
+    fn next_band(&mut self) -> anyhow::Result<Option<(u32, Vec<u8>)>> {
+        // The render thread hangs up after the last band.
+        let Ok(band) = self.rx.recv() else { return Ok(None) };
+        let (rows, rgba) = band?;
+        self.done += rows;
+        (self.progress)(self.done as f32 / self.height as f32);
+        Ok(Some((rows, rgba)))
+    }
 }
