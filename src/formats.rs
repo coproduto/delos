@@ -187,11 +187,15 @@ pub fn decode(bytes: &[u8]) -> anyhow::Result<Decoded> {
 
 /// Converts a premultiplied float tile to straight RGBA8.
 pub fn tile_to_rgba8(t: &CpuTile) -> Vec<u8> {
-    let mut out = Vec::with_capacity(t.data.len() * 4);
-    for p in &t.data {
-        let c = unpremul(*p);
-        out.extend_from_slice(&[to8(c[0]), to8(c[1]), to8(c[2]), to8(p[3])]);
-    }
+    use rayon::prelude::*;
+    const CHUNK: usize = 4096;
+    let mut out = vec![0u8; t.data.len() * 4];
+    out.par_chunks_mut(CHUNK * 4).zip(t.data.par_chunks(CHUNK)).for_each(|(out, px)| {
+        for (o, p) in out.chunks_exact_mut(4).zip(px) {
+            let c = unpremul(*p);
+            o.copy_from_slice(&[to8(c[0]), to8(c[1]), to8(c[2]), to8(p[3])]);
+        }
+    });
     out
 }
 
