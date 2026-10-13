@@ -4,6 +4,7 @@
 //! or the final display needs them.
 
 use super::kernels::{wgsl_source, Kernel, MAX_INPUTS, MAX_PARAMS};
+use super::resident::Resident;
 use super::tile::{CpuTile, SampleMode};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,6 +17,12 @@ pub struct GpuTile {
     pub h: u32,
     tex: wgpu::Texture,
     view: wgpu::TextureView,
+}
+
+impl From<super::resident::Level> for GpuTile {
+    fn from(l: super::resident::Level) -> Self {
+        GpuTile { w: l.w, h: l.h, tex: l.tex, view: l.view }
+    }
 }
 
 pub struct GpuInput<'a> {
@@ -45,6 +52,8 @@ pub struct Gpu {
     failed: Arc<AtomicBool>,
     pub name: String,
     pub max_dim: u32,
+    /// Source image levels kept on the GPU.
+    pub resident: Resident,
 }
 
 impl Gpu {
@@ -128,6 +137,7 @@ impl Gpu {
             immediate_size: 0,
         });
         let dummy = Self::make_texture(&device, 1, 1).create_view(&Default::default());
+        let resident = Resident::new(device.clone(), queue.clone(), limits.max_texture_dimension_2d);
         Ok(Gpu {
             device,
             queue,
@@ -138,6 +148,7 @@ impl Gpu {
             failed,
             name: format!("{} ({:?})", info.name, info.backend),
             max_dim: limits.max_texture_dimension_2d,
+            resident,
         })
     }
 

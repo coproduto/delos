@@ -1,8 +1,8 @@
 //! Decoded source images with a mip pyramid, so any region can be rendered
 //! at any scale in time proportional to the *output* size.
 
-use super::geom::{Request, Sampling};
-use super::tile::CpuTile;
+use super::geom::{Map2, Request, Sampling};
+use super::tile::{CpuTile, SampleMode};
 use rayon::prelude::*;
 
 /// One pyramid level: premultiplied RGBA8, row-major.
@@ -13,6 +13,8 @@ struct Level {
 }
 
 pub struct SourceImage {
+    /// Unique for the life of the process (identifies the image's GPU copy).
+    pub id: u64,
     pub name: String,
     pub width: u32,
     pub height: u32,
@@ -30,6 +32,8 @@ pub struct ImageFile {
     /// project later).
     pub origin: Option<std::path::PathBuf>,
 }
+
+static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 static U8_TO_F32: std::sync::LazyLock<[f32; 256]> = std::sync::LazyLock::new(|| std::array::from_fn(|i| i as f32 / 255.0));
 
@@ -56,7 +60,8 @@ impl SourceImage {
             let next = downsample(levels.last().unwrap());
             levels.push(next);
         }
-        Self { name: name.into(), width, height, levels, file: Default::default() }
+        let id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Self { id, name: name.into(), width, height, levels, file: Default::default() }
     }
 
     pub fn file(&self) -> ImageFile {
@@ -73,6 +78,17 @@ impl SourceImage {
 
     pub fn set_origin(&self, path: std::path::PathBuf) {
         self.file.lock().unwrap().origin = Some(path);
+    }
+
+    pub fn level_count(&self) -> usize {
+        self.levels.len()
+    }
+
+    /// Pyramid level `i` (0 is full size): width, height and premultiplied
+    /// RGBA8 pixels, row-major.
+    pub fn level(&self, i: usize) -> (u32, u32, &[u8]) {
+        let l = &self.levels[i];
+        (l.w, l.h, &l.data)
     }
 
     pub fn bytes(&self) -> usize {
@@ -93,15 +109,33 @@ impl SourceImage {
         out
     }
 
-    pub fn render(&self, req: &Request) -> CpuTile {
-        let sx = req.step_x();
-        let sy = req.step_y();
-        let step = sx.min(sy);
-        let level = if req.sampling == Sampling::Point || step <= 1.0 {
+    /// The pyramid level to sample for `req`: the finest one whose texels
+    /// are no smaller than the request's pixels.
+    pub fn level_for(&self, req: &Request) -> usize {
+        let step = req.step_x().min(req.step_y());
+        if req.sampling == Sampling::Point || step <= 1.0 {
             0
         } else {
             (step.log2().floor() as usize).min(self.levels.len() - 1)
-        };
+        }
+    }
+
+    /// How [`render`](Self::render) samples `level` for `req`, for kernels:
+    /// the map from output pixel centers to the level's texel coordinates,
+    /// and the sampling mode.
+    pub fn texel_map(&self, level: usize, req: &Request) -> (Map2, SampleMode) {
+        let lv = &self.levels[level];
+        let kx = lv.w as f64 / self.width as f64;
+        let ky = lv.h as f64 / self.height as f64;
+        let r = req.region;
+        let map = Map2::new(req.step_x() * kx, r.x * kx, req.step_y() * ky, r.y * ky);
+        (map, if level > 0 { SampleMode::Bilinear } else { SampleMode::Nearest })
+    }
+
+    pub fn render(&self, req: &Request) -> CpuTile {
+        let sx = req.step_x();
+        let sy = req.step_y();
+        let level = self.level_for(req);
         let lv = &self.levels[level];
         let lut = &*U8_TO_F32;
         let (iw, ih) = (self.width as f64, self.height as f64);

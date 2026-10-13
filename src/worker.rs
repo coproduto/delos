@@ -241,6 +241,7 @@ impl Worker {
     /// Decodes an image; without `bytes` it is read from `opts.origin`.
     pub fn import(self: &Arc<Self>, name: String, bytes: Option<Vec<u8>>, token: u64, opts: ImportOptions) {
         let tx = self.tx.clone();
+        let engine = self.engine.clone();
         #[cfg(feature = "native")]
         let stash = self.stash.clone();
         let work = move || {
@@ -266,7 +267,9 @@ impl Worker {
                 if let Some(origin) = origin {
                     img.set_origin(origin);
                 }
-                Ok(Arc::new(img))
+                let img = Arc::new(img);
+                engine.make_resident(&img);
+                Ok(img)
             })()
             .map_err(|e| format!("{e:#}"));
             let _ = tx.unbounded_send(Msg::Imported { name, result, token });
@@ -334,8 +337,14 @@ impl Worker {
     #[cfg(feature = "native")]
     pub fn open_project(&self, path: std::path::PathBuf, root: std::path::PathBuf) {
         let tx = self.tx.clone();
+        let engine = self.engine.clone();
         run_background(move || {
             let result = crate::project::open(&path, &root).map_err(|e| format!("{e:#}"));
+            if let Ok((_, graph)) = &result {
+                for img in graph.images.values() {
+                    engine.make_resident(img);
+                }
+            }
             let _ = tx.unbounded_send(Msg::ProjectOpened { result });
         });
     }

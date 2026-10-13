@@ -6,6 +6,8 @@ pub mod geom;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 pub mod kernels;
+#[cfg(feature = "gpu")]
+pub mod resident;
 pub mod source;
 pub mod tile;
 
@@ -13,6 +15,7 @@ use crate::graph::{Graph, Link, NodeId};
 use cache::Cache;
 use geom::{Map2, Request};
 use kernels::{Env, EnvInput, Kernel, MAX_PARAMS};
+use source::SourceImage;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
@@ -91,6 +94,23 @@ impl Engine {
                 g.pipeline(k);
             }
         }
+    }
+
+    /// Starts keeping `img` on the GPU (in the background), so renders that
+    /// use it don't have to upload it.
+    pub fn make_resident(&self, img: &Arc<SourceImage>) {
+        #[cfg(feature = "gpu")]
+        if let Some(g) = &self.gpu {
+            g.resident.prefetch(img);
+        }
+        #[cfg(not(feature = "gpu"))]
+        let _ = img;
+    }
+
+    /// Source images kept on the GPU, when there is one.
+    #[cfg(feature = "gpu")]
+    pub fn resident(&self) -> Option<&resident::Resident> {
+        self.gpu.as_deref().map(|g| &g.resident)
     }
 
     pub fn has_gpu(&self) -> bool {
@@ -200,6 +220,35 @@ impl<'a> Ctx<'a> {
             #[cfg(feature = "gpu")]
             Tile::Gpu(g) => self.engine.gpu.as_ref().expect("gpu tile without gpu").download(&g),
         }
+    }
+
+    /// Samples a source image for `req`: on the GPU from its resident
+    /// pyramid level when possible, otherwise on the CPU.
+    pub fn source(&self, img: &Arc<SourceImage>, req: &Request) -> Tile {
+        #[cfg(feature = "gpu")]
+        if let Some(t) = self.source_on_gpu(img, req) {
+            return t;
+        }
+        Tile::Cpu(img.render(req))
+    }
+
+    /// `None` unless the GPU is in use and the level is resident (asking
+    /// queues its upload). The level is RGBA8, unlike other GPU tiles, so it
+    /// is only ever a kernel input here, never returned.
+    #[cfg(feature = "gpu")]
+    fn source_on_gpu(&self, img: &Arc<SourceImage>, req: &Request) -> Option<Tile> {
+        let g = self.engine.active_gpu()?;
+        if !g.fits(req.width, req.height) {
+            return None;
+        }
+        let pipeline = g.pipeline(&kernels::RESAMPLE)?;
+        let level = img.level_for(req);
+        let tile = gpu::GpuTile::from(g.resident.get(img, level)?);
+        let (map, mode) = img.texel_map(level, req);
+        let input = gpu::GpuInput { tile: Some(&tile), map: map.as_f32(), mode };
+        let extent = [req.extent.w as f32, req.extent.h as f32];
+        let out = g.run(&pipeline, &[input], req.pixel_to_node().as_f32(), extent, &[0.0; MAX_PARAMS], req.width, req.height);
+        Some(Tile::Gpu(out))
     }
 
     /// Runs a kernel over the request's grid, on the GPU when possible.

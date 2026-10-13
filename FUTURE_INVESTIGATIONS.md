@@ -10,36 +10,59 @@ stack, so a blocked thread can look busy. Weight samples by CPU time
 (`threadCPUDelta`) and confirm surprising findings with direct timing before
 acting on them.
 
-## 1. Keep source images resident on the GPU
+## 1. GPU-side conversion to 8-bit before readback
 
-**Observation.** On the GPU backend, every render samples the source image
-pyramid on the CPU (`SourceImage::render`) into a premultiplied `f32` tile and
-uploads it (`Gpu::upload`): about 19 MB per 1080² preview frame. Before
-sampling was sped up this was ~70% of the GPU path's CPU time during
-previews; sampling is now ~2.5× faster, but the uploads remain, and the GPU
-backend is still only slightly faster than the CPU one (~19 vs ~20 ms per 16K
-preview re-render). In a 16K PNG export the uploads alone cost ~1 s (copies in
-`Queue::write_texture`).
+**Observation.** `Gpu::download` reads back 16 B/px `f32` tiles that are then
+converted to 8-bit (`tile_to_rgba8` for export, `encode_display_bmp` for
+previews). With source images resident, readback is most of a GPU preview:
+68 of 92 samples on the rendering thread during 16K preview re-renders
+(~10 ms each), split between waiting for the GPU and copying rows.
 
-**Idea.** Upload each source image's pyramid once, as an RGBA8 texture with
-mip levels, and sample it in a kernel.
+**Idea.** A final kernel that unpremultiplies and quantises into an
+`rgba8unorm` texture cuts readback 4× for both previews and 8-bit exports.
 
-**Tradeoffs to settle.**
-- Memory: a 16K image's pyramid is ~1.33 GB. On unified memory (Apple) this is
-  in addition to the CPU copy, which is still needed for the CPU fallback,
-  saving projects (`to_rgba8`) and background removal. Needs a residency budget
-  and eviction (LRU per image or per level).
-- `max_texture_dimension_2d` is 16384 on Apple silicon and lower elsewhere.
-  Larger images need splitting across textures; a first version could make only
-  images that fit resident and keep the current path for the rest.
-- Upload cost moves to import (~1.3 GB once). Upload coarse levels first so the
-  fitted preview is available immediately.
-- Hardware bilinear filtering has limited fractional precision on some GPUs;
-  sampling manually with `textureLoad` keeps parity with the CPU path.
-- Mobile needs a much smaller budget (iOS kills memory-heavy apps). The web
-  build has no GPU backend.
+**Measured.** In a 16K PNG export on the GPU backend, readback costs ~1.85 s
+of wall time, mostly waiting for the GPU to finish the band; the row copies in
+`Gpu::download` are ~0.4 s and the (now parallel) `tile_to_rgba8` ~0.1 s.
+Both would shrink or disappear.
 
-## 2. Cheaper noise kernel
+**Tradeoffs.** GPU rounding may differ from the CPU path by one level; a second
+implementation of the conversion to maintain; high-bit-depth exports would still
+need the `f32` path.
+
+## 2. Follow-ups to source residency
+
+Source images are resident on the GPU in the least invasive form: each
+pyramid level that fits is uploaded at import into an LRU-managed registry on
+`Gpu` (`src/engine/resident.rs`), and the image node samples it with the
+existing resample kernel. This halved GPU preview re-renders (21.7 -> 10.4 ms)
+and cut a 16K GPU export from 3.74 to 2.32 s. These extensions would move more
+work to the GPU or save more memory:
+
+- **Fused source sampling.** Bind a resident level directly as an input of
+  the first kernel that consumes the image, instead of first resampling it
+  into a full-size intermediate tile. Saves a pass and a 16 B/px intermediate
+  per frame, but changes the tile/kernel-input model.
+- **Pyramid generation on the GPU.** Upload level 0 only and build the other
+  levels with a compute kernel. Faster imports (see 6) and a quarter less
+  upload traffic; the integer averaging must match `downsample` exactly so
+  CPU and GPU pyramids stay identical.
+- **Exact CPU/GPU sampling parity.** The GPU maps coordinates in `f32`
+  (the CPU in `f64`), so at 16K nearest sampling can occasionally pick the
+  neighbouring texel near boundaries. Uploading the CPU-computed column and
+  row taps (a few KB per request) would make texel choice and weights match
+  exactly.
+- **Eviction thrashing.** When the levels used together need more than the
+  budget (say, exporting a blend of two 16K images with a small budget), each
+  render evicts levels the next one needs, re-uploading them in the
+  background over and over. Rendering never waits, but bandwidth is wasted.
+  Not evicting levels used in the last few seconds would stop it.
+- **Dropping the CPU copy of resident levels.** On unified-memory machines
+  the CPU and GPU pyramids double memory use (~2.7 GB for a 16K image).
+  Resident levels could be dropped from the CPU and read back when the CPU
+  path needs them (CPU backend, saving, background removal).
+
+## 3. Cheaper noise kernel
 
 **Observation.** The fractal Perlin noise kernel is about half of a CPU
 preview re-render of the test graph (10.9 ms of ~20 ms at 1080²), though only
@@ -51,7 +74,7 @@ depends only on the row (`hash_u(iy ^ hash_u(seed))` per octave and lattice
 row) can be computed once per row and octave instead of per pixel, removing
 about two thirds of the hash work. Integer-only, so bit-exact.
 
-## 3. Node output caching
+## 4. Node output caching
 
 **Observation.** Previews re-render the entire graph every frame. Dragging a
 slider on the last node recomputes everything upstream (noise, resize, …)
@@ -74,7 +97,7 @@ or two tiles of memory.
   copy.
 - Keys must include the full request (region, grid, sampling, `exact`).
 
-## 4. Band-parallel rendering
+## 5. Band-parallel rendering
 
 **Original premise (disproved).** Rendering one node at a time, each a
 separate parallel loop, was thought to leave cores idle between nodes.
@@ -93,31 +116,13 @@ resize, background removal) must not be split.
 **Also tried and dropped.** Zeroing new tiles in parallel instead of on the
 calling thread (`CpuTile::new`) made no measurable difference.
 
-## 5. GPU-side conversion to 8-bit before readback
-
-**Observation.** `Gpu::download` reads back 16 B/px `f32` tiles that are then
-converted to 8-bit (`tile_to_rgba8` for export, `encode_display_bmp` for
-previews).
-
-**Idea.** A final kernel that unpremultiplies and quantises into an
-`rgba8unorm` texture cuts readback 4× for both previews and 8-bit exports.
-
-**Measured.** In a 16K PNG export on the GPU backend, readback costs ~1.85 s
-of wall time, mostly waiting for the GPU to finish the band; the row copies in
-`Gpu::download` are ~0.4 s and the (now parallel) `tile_to_rgba8` ~0.1 s.
-Both would shrink or disappear.
-
-**Tradeoffs.** GPU rounding may differ from the CPU path by one level; a second
-implementation of the conversion to maintain; high-bit-depth exports would still
-need the `f32` path.
-
 ## 6. Faster image import
 
 **Observation.** Importing a 16K image takes ~150–350 ms, dominated by
 building the mip pyramid (`downsample`).
 
 **Ideas.** Better parallel granularity in `downsample`; building the pyramid
-on the GPU when it becomes resident (see 1); building levels lazily.
+on the GPU (see 2); building levels lazily.
 
 ## 7. Fusing chains of per-pixel kernels
 

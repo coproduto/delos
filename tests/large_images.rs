@@ -15,6 +15,14 @@ use std::time::{Duration, Instant};
 
 const N: u32 = 16384;
 
+/// These tests time themselves and each holds 16K images on the CPU and the
+/// GPU, so running them concurrently skews timings and memory: they take turns.
+static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+fn serial() -> std::sync::MutexGuard<'static, ()> {
+    SERIAL.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 fn no_cancel() -> bool {
     false
 }
@@ -33,7 +41,6 @@ fn timed<T>(label: &str, f: impl FnOnce() -> T) -> (T, Duration) {
 }
 
 fn build_graph(engine: &Engine) -> (Graph, u64) {
-    let _ = engine;
     let mut g = Graph::new();
     let (img, _) = timed("16K import (premultiply + pyramid)", || {
         let mut data = vec![0u8; N as usize * N as usize * 4];
@@ -45,6 +52,18 @@ fn build_graph(engine: &Engine) -> (Graph, u64) {
         });
         Arc::new(SourceImage::from_rgba8("16k", N, N, data))
     });
+    // Like an import in the app. The upload runs in the background there;
+    // waiting for it here makes the timings below steady-state ones.
+    engine.make_resident(&img);
+    #[cfg(feature = "gpu")]
+    if let Some(r) = engine.resident() {
+        timed("16K upload to the GPU", || {
+            let t = Instant::now();
+            while !(0..img.level_count()).all(|l| r.is_resident(&img, l)) && t.elapsed() < Duration::from_secs(30) {
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        });
+    }
     let iid = g.add_image(img);
     let image = g.add_node("image", (0.0, 0.0));
     g.set_param(image, IMAGE_PARAM, Value::Int(iid as i64));
@@ -70,6 +89,7 @@ fn build_graph(engine: &Engine) -> (Graph, u64) {
 
 #[test]
 fn preview_16k_is_interactive() {
+    let _serial = serial();
     for gpu in [false, true] {
         let engine = Engine::new(gpu);
         if gpu && !engine.has_gpu() {
@@ -107,6 +127,7 @@ fn preview_16k_is_interactive() {
 #[test]
 #[cfg_attr(debug_assertions, ignore = "takes minutes unoptimised; run with --release")]
 fn export_16k_png() {
+    let _serial = serial();
     let codec = delos::formats::codec_by_name("PNG").unwrap();
     for gpu in [false, true] {
         let engine = Engine::new(gpu);
@@ -132,6 +153,7 @@ fn export_16k_png() {
 
 #[test]
 fn export_16k_streams_in_bands() {
+    let _serial = serial();
     let engine = Engine::new(true);
     let mut g = Graph::new();
     let noise = g.add_node("noise", (0.0, 0.0));
