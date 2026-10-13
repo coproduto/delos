@@ -39,7 +39,37 @@ mip levels, and sample it in a kernel.
 - Mobile needs a much smaller budget (iOS kills memory-heavy apps). The web
   build has no GPU backend.
 
-## 2. Cheaper noise kernel
+## 2. Follow-ups to source residency
+
+Source residency (1) is being built in its least invasive form: each pyramid
+level that fits is uploaded at import into an LRU-managed registry on `Gpu`,
+and the image node samples it with the existing resample kernel. These
+extensions would move more work to the GPU or save more memory:
+
+- **Fused source sampling.** Bind a resident level directly as an input of
+  the first kernel that consumes the image, instead of first resampling it
+  into a full-size intermediate tile. Saves a pass and a 16 B/px intermediate
+  per frame, but changes the tile/kernel-input model.
+- **Pyramid generation on the GPU.** Upload level 0 only and build the other
+  levels with a compute kernel. Faster imports (see 7) and a quarter less
+  upload traffic; the integer averaging must match `downsample` exactly so
+  CPU and GPU pyramids stay identical.
+- **Exact CPU/GPU sampling parity.** The GPU maps coordinates in `f32`
+  (the CPU in `f64`), so at 16K nearest sampling can occasionally pick the
+  neighbouring texel near boundaries. Uploading the CPU-computed column and
+  row taps (a few KB per request) would make texel choice and weights match
+  exactly.
+- **Eviction thrashing.** When the levels used together need more than the
+  budget (say, exporting a blend of two 16K images with a small budget), each
+  render evicts levels the next one needs, re-uploading them in the
+  background over and over. Rendering never waits, but bandwidth is wasted.
+  Not evicting levels used in the last few seconds would stop it.
+- **Dropping the CPU copy of resident levels.** On unified-memory machines
+  the CPU and GPU pyramids double memory use (~2.7 GB for a 16K image).
+  Resident levels could be dropped from the CPU and read back when the CPU
+  path needs them (CPU backend, saving, background removal).
+
+## 3. Cheaper noise kernel
 
 **Observation.** The fractal Perlin noise kernel is about half of a CPU
 preview re-render of the test graph (10.9 ms of ~20 ms at 1080²), though only
@@ -51,7 +81,7 @@ depends only on the row (`hash_u(iy ^ hash_u(seed))` per octave and lattice
 row) can be computed once per row and octave instead of per pixel, removing
 about two thirds of the hash work. Integer-only, so bit-exact.
 
-## 3. Node output caching
+## 4. Node output caching
 
 **Observation.** Previews re-render the entire graph every frame. Dragging a
 slider on the last node recomputes everything upstream (noise, resize, …)
@@ -74,7 +104,7 @@ or two tiles of memory.
   copy.
 - Keys must include the full request (region, grid, sampling, `exact`).
 
-## 4. Band-parallel rendering
+## 5. Band-parallel rendering
 
 **Original premise (disproved).** Rendering one node at a time, each a
 separate parallel loop, was thought to leave cores idle between nodes.
@@ -93,7 +123,7 @@ resize, background removal) must not be split.
 **Also tried and dropped.** Zeroing new tiles in parallel instead of on the
 calling thread (`CpuTile::new`) made no measurable difference.
 
-## 5. GPU-side conversion to 8-bit before readback
+## 6. GPU-side conversion to 8-bit before readback
 
 **Observation.** `Gpu::download` reads back 16 B/px `f32` tiles that are then
 converted to 8-bit (`tile_to_rgba8` for export, `encode_display_bmp` for
@@ -111,15 +141,15 @@ Both would shrink or disappear.
 implementation of the conversion to maintain; high-bit-depth exports would still
 need the `f32` path.
 
-## 6. Faster image import
+## 7. Faster image import
 
 **Observation.** Importing a 16K image takes ~150–350 ms, dominated by
 building the mip pyramid (`downsample`).
 
 **Ideas.** Better parallel granularity in `downsample`; building the pyramid
-on the GPU when it becomes resident (see 1); building levels lazily.
+on the GPU (see 2); building levels lazily.
 
-## 7. Fusing chains of per-pixel kernels
+## 8. Fusing chains of per-pixel kernels
 
 **Observation.** Each node materialises a full tile, so a chain like
 invert → blend → over writes and reads the whole image several times; these
@@ -129,13 +159,13 @@ kernels are memory-bound.
 memory-bandwidth savings but a compiler-like project; spatial kernels
 (reflect, resample) need halo handling.
 
-## 8. Rendering independent inputs concurrently
+## 9. Rendering independent inputs concurrently
 
 **Idea.** Render a node's independent inputs with `rayon::join`. Requires `Ctx`
 to become `Sync` (its hash memo is a `RefCell`). Little expected gain: kernels
 already use all performance cores, and gaps between nodes are ~3% of a render.
 
-## 9. Parallel PNG compression
+## 10. Parallel PNG compression
 
 **Observation.** PNG encoding is single-threaded: ~2.2 s for a 16K export
 (~75% fdeflate compression, ~25% row filtering; disk writes ~60 ms). It

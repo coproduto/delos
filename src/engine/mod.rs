@@ -6,6 +6,8 @@ pub mod geom;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 pub mod kernels;
+#[cfg(feature = "gpu")]
+pub mod resident;
 pub mod source;
 pub mod tile;
 
@@ -13,6 +15,7 @@ use crate::graph::{Graph, Link, NodeId};
 use cache::Cache;
 use geom::{Map2, Request};
 use kernels::{Env, EnvInput, Kernel, MAX_PARAMS};
+use source::SourceImage;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::atomic::AtomicBool;
@@ -91,6 +94,23 @@ impl Engine {
                 g.pipeline(k);
             }
         }
+    }
+
+    /// Starts keeping `img` on the GPU (in the background), so renders that
+    /// use it don't have to upload it.
+    pub fn make_resident(&self, img: &Arc<SourceImage>) {
+        #[cfg(feature = "gpu")]
+        if let Some(g) = &self.gpu {
+            g.resident.prefetch(img);
+        }
+        #[cfg(not(feature = "gpu"))]
+        let _ = img;
+    }
+
+    /// Source images kept on the GPU, when there is one.
+    #[cfg(feature = "gpu")]
+    pub fn resident(&self) -> Option<&resident::Resident> {
+        self.gpu.as_deref().map(|g| &g.resident)
     }
 
     pub fn has_gpu(&self) -> bool {

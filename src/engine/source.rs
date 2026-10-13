@@ -13,6 +13,8 @@ struct Level {
 }
 
 pub struct SourceImage {
+    /// Unique for the life of the process (identifies the image's GPU copy).
+    pub id: u64,
     pub name: String,
     pub width: u32,
     pub height: u32,
@@ -30,6 +32,8 @@ pub struct ImageFile {
     /// project later).
     pub origin: Option<std::path::PathBuf>,
 }
+
+static NEXT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 static U8_TO_F32: std::sync::LazyLock<[f32; 256]> = std::sync::LazyLock::new(|| std::array::from_fn(|i| i as f32 / 255.0));
 
@@ -56,7 +60,8 @@ impl SourceImage {
             let next = downsample(levels.last().unwrap());
             levels.push(next);
         }
-        Self { name: name.into(), width, height, levels, file: Default::default() }
+        let id = NEXT_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        Self { id, name: name.into(), width, height, levels, file: Default::default() }
     }
 
     pub fn file(&self) -> ImageFile {
@@ -73,6 +78,17 @@ impl SourceImage {
 
     pub fn set_origin(&self, path: std::path::PathBuf) {
         self.file.lock().unwrap().origin = Some(path);
+    }
+
+    pub fn level_count(&self) -> usize {
+        self.levels.len()
+    }
+
+    /// Pyramid level `i` (0 is full size): width, height and premultiplied
+    /// RGBA8 pixels, row-major.
+    pub fn level(&self, i: usize) -> (u32, u32, &[u8]) {
+        let l = &self.levels[i];
+        (l.w, l.h, &l.data)
     }
 
     pub fn bytes(&self) -> usize {
