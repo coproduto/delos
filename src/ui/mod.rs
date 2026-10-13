@@ -291,7 +291,7 @@ fn on_key(app: App, e: KeyboardEvent) {
             if m.contains(Modifiers::SHIFT) { app.redo() } else { app.undo() }
         }
         Key::Character(c) if cmd && c == "y" => app.redo(),
-        Key::Character(c) if cmd && c == "e" => dialogs::open_export(app, None),
+        Key::Character(c) if cmd && c == "e" => app.open_export(None),
         Key::Delete | Key::Backspace => app.delete_selection(),
         Key::Escape if app.project_prompt.peek().is_some() && app.project_busy.peek().is_none() => session::cancel_prompt(app),
         Key::Escape => {
@@ -388,7 +388,7 @@ fn Toolbar() -> Element {
                 class: "btn",
                 title: "Export the image currently shown (⌘E)",
                 disabled: disp.empty,
-                onclick: move |_| dialogs::open_export(app, None),
+                onclick: move |_| app.open_export(None),
                 "Export"
             }
             div { class: "sep" }

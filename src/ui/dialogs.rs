@@ -1,9 +1,8 @@
 use super::platform::{self, SaveTarget};
 use super::session;
-use super::state::{fmt_size, App, ExportState};
+use super::state::{fmt_size, App};
 use super::WorkerHandle;
 use crate::formats::{self, EncodeOptions};
-use crate::graph::Link;
 use crate::worker::{ExportDest, ExportJob};
 use dioxus::prelude::*;
 
@@ -64,37 +63,6 @@ pub fn ConflictDialog() -> Element {
     }
 }
 
-/// Opens the export dialog for `target` (a node output), or for what the
-/// image view shows.
-pub fn open_export(mut app: App, target: Option<Link>) {
-    let d = app.displayed();
-    if target.is_none() && d.empty {
-        return;
-    }
-    let target = target.unwrap_or(d.export_target);
-    let g = app.graph.peek();
-    if !g.has_link(target) {
-        return;
-    }
-    let title = if target.node == g.output { "Output".to_string() } else { g.link_title(target) };
-    let size = g.extent_of(target.node).pixels();
-    drop(g);
-    let stem: String = title.rsplit_once('.').map(|(s, _)| s.to_string()).unwrap_or(title.clone());
-    let stem: String = stem.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
-    app.export.set(Some(ExportState {
-        target,
-        title,
-        size,
-        codec: "PNG".into(),
-        quality: 90,
-        name: format!("{stem}.png"),
-        running: None,
-        progress: 0.0,
-        status: None,
-        result: None,
-    }));
-}
-
 static EXPORT_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 #[component]
@@ -143,8 +111,13 @@ pub fn ExportDialog() -> Element {
     rsx! {
         div {
             class: "modal-backdrop",
-            onclick: move |_| if !running { app.export.set(None) },
+            onmousedown: move |_| app.export_pressed(true),
+            onclick: move |_| app.export_backdrop_clicked(),
             div { class: "modal",
+                onmousedown: move |e| {
+                    e.stop_propagation();
+                    app.export_pressed(false);
+                },
                 onclick: move |e| e.stop_propagation(),
                 div { class: "modal-header",
                     h3 { "Export {st.title}" }

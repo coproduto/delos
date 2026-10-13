@@ -200,3 +200,21 @@ fn adding_a_split_after_a_node_takes_over_its_consumers() {
         assert_eq!(g.node(invert).unwrap().inputs[0], Some(Link::new(split, 0)), "consumers read the inside part");
     });
 }
+
+#[test]
+fn dragging_out_of_the_export_dialog_keeps_it_open() {
+    // The reported bug: selecting the whole file name by dragging past the
+    // dialog's edge closed it, because the click lands on the backdrop.
+    with_app(|app| {
+        chain(app);
+        app.open_export(None);
+        assert!(app.export.peek().is_some());
+        app.export_pressed(false); // press in the file name field…
+        app.export_backdrop_clicked(); // …release outside the dialog
+        assert!(app.export.peek().is_some(), "dialog closed");
+        // A click on the backdrop itself still closes it.
+        app.export_pressed(true);
+        app.export_backdrop_clicked();
+        assert!(app.export.peek().is_none(), "dialog stayed open");
+    });
+}

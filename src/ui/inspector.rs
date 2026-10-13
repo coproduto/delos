@@ -3,7 +3,7 @@
 
 use super::state::{fmt_size, App, ImportTarget};
 use super::session::{self, ImportSource};
-use super::{dialogs, WorkerHandle};
+use super::WorkerHandle;
 use crate::engine::geom::Size;
 use crate::formats;
 use crate::graph::{Link, NodeId};
@@ -151,7 +151,7 @@ fn NodePanel(id: NodeId) -> Element {
                             }
                         }
                     }
-                    button { class: "btn", onclick: move |_| dialogs::open_export(app, Some(export_link)), "{export_label}" }
+                    button { class: "btn", onclick: move |_| app.open_export(Some(export_link)), "{export_label}" }
                     button { class: "btn danger", onclick: move |_| app.delete_node(id), "Delete" }
                 }
             }

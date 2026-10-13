@@ -61,6 +61,8 @@ pub struct ExportState {
     pub progress: f32,
     pub status: Option<String>,
     pub result: Option<Result<String, String>>,
+    /// The last mouse press went down on the backdrop, not the dialog box.
+    pub pressed_on_backdrop: bool,
 }
 
 /// What a finished import should be attached to.
@@ -381,6 +383,60 @@ impl App {
         let empty = tn.kind == ids::OUTPUT && tn.inputs[0].is_none();
         let sizeless = size.is_none() || (tn.kind == ids::OUTPUT && tn.input_node(0).is_some_and(|i| g.size_of(i).is_none()));
         Displayed { target, editing, overlay_space, locked, export_target, extent: g.extent_of(target.node), sizeless, empty }
+    }
+
+    // ----- export dialog ----------------------------------------------------
+
+    /// Opens the export dialog for `target` (a node output), or for what the
+    /// image view shows.
+    pub fn open_export(mut self, target: Option<Link>) {
+        let d = self.displayed();
+        if target.is_none() && d.empty {
+            return;
+        }
+        let target = target.unwrap_or(d.export_target);
+        let g = self.graph.peek();
+        if !g.has_link(target) {
+            return;
+        }
+        let title = if target.node == g.output { "Output".to_string() } else { g.link_title(target) };
+        let size = g.extent_of(target.node).pixels();
+        drop(g);
+        let stem: String = title.rsplit_once('.').map(|(s, _)| s.to_string()).unwrap_or(title.clone());
+        let stem: String = stem.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+        self.export.set(Some(ExportState {
+            target,
+            title,
+            size,
+            codec: "PNG".into(),
+            quality: 90,
+            name: format!("{stem}.png"),
+            running: None,
+            progress: 0.0,
+            status: None,
+            result: None,
+            pressed_on_backdrop: false,
+        }));
+    }
+
+    /// A mouse press in the export dialog: on its backdrop, or in the box.
+    pub fn export_pressed(mut self, on_backdrop: bool) {
+        // Writing only on change spares the dialog a re-render per click.
+        if self.export.peek().as_ref().is_some_and(|s| s.pressed_on_backdrop != on_backdrop) {
+            if let Some(s) = self.export.write().as_mut() {
+                s.pressed_on_backdrop = on_backdrop;
+            }
+        }
+    }
+
+    /// A click reached the export dialog's backdrop: closes the dialog unless
+    /// an export is running. Only if the press began on the backdrop too: a
+    /// drag that starts in the box (selecting a field's text) and ends
+    /// outside it also delivers its click to the backdrop.
+    pub fn export_backdrop_clicked(mut self) {
+        if self.export.peek().as_ref().is_some_and(|s| s.running.is_none() && s.pressed_on_backdrop) {
+            self.export.set(None);
+        }
     }
 
     // ----- graph operations used by several components ----------------------
