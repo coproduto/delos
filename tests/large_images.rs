@@ -102,6 +102,34 @@ fn preview_16k_is_interactive() {
     }
 }
 
+/// A full PNG export to disk, the way the desktop app does it (buffered file
+/// writer), including compression.
+#[test]
+#[cfg_attr(debug_assertions, ignore = "takes minutes unoptimised; run with --release")]
+fn export_16k_png() {
+    let codec = delos::formats::codec_by_name("PNG").unwrap();
+    for gpu in [false, true] {
+        let engine = Engine::new(gpu);
+        if gpu && !engine.has_gpu() {
+            continue;
+        }
+        println!("--- {}", engine.backend_name());
+        let (g, out) = build_graph(&engine);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("export.png");
+        let progress = |_p: f32| {};
+        let (_, d) = timed("16K PNG export", || {
+            let mut w = std::io::BufWriter::with_capacity(1 << 20, std::fs::File::create(&path).unwrap());
+            delos::formats::export(&engine, &g, out.into(), codec, &Default::default(), &mut w, &no_cancel, &progress, &no_status).unwrap();
+            w.into_inner().unwrap().sync_all().unwrap();
+        });
+        println!("16K PNG size: {} MiB", std::fs::metadata(&path).unwrap().len() >> 20);
+        let info = png::Decoder::new(std::io::BufReader::new(std::fs::File::open(&path).unwrap())).read_info().unwrap();
+        assert_eq!((info.info().width, info.info().height), (N, N));
+        assert!(d < budget(60_000), "16K PNG export too slow: {d:?}");
+    }
+}
+
 #[test]
 fn export_16k_streams_in_bands() {
     let engine = Engine::new(true);
