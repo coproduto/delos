@@ -13,51 +13,19 @@ stack, so a blocked thread can look busy. Weight samples by CPU time
 (`threadCPUDelta`) and confirm surprising findings with direct timing before
 acting on them.
 
-## 1. Reusing GPU textures and readback buffers
+## 1. Parallel PNG compression
 
-**Observation.** Every GPU kernel writes into a newly created texture, and
-every readback into a new buffer. A new texture costs far more on the GPU
-than the kernel that fills it (on the M1 Pro, wgpu zero-fills it and Metal
-maps fresh memory; neither shows in pass timestamps):
+**Observation.** PNG encoding is single-threaded: ~2.2 s for a 16K export
+(~75% fdeflate compression, ~25% row filtering; disk writes ~60 ms). It
+overlaps rendering. On the GPU backend rendering now takes ~1.1 s of a
+2.44 s 16K PNG export (readback wait 0.93 s, copies 0.19 s, per the engine
+profile), so encoding is what the export waits for. On the CPU backend
+(~4.6 s) rendering is still the longer of the two.
 
-| solid kernel + wait | 512² | 1920×1080 | 16384×256 | 4096² |
-|---|---:|---:|---:|---:|
-| new output texture | 0.67 ms | 2.71 ms | 4.72 ms | 17.9 ms |
-| reused texture | 0.37 ms | 0.66 ms | 0.86 ms | 3.0 ms |
+**Idea.** A multithreaded encoder (e.g. the `mtpng` crate), or compressing
+chunks of rows independently and concatenating the deflate streams.
 
-In a 16K GPU preview re-render (~10.6 ms), kernels run for ~3.5 ms of GPU
-time, yet waiting for the readback takes 6.9 ms. The rest is allocation,
-zeroing and the copy to the readback buffer. Export bands are the same:
-~12.6 ms of kernels in a 25.6 ms wait per 4 Mpx band.
-
-**Idea.** A pool of textures and readback buffers on `Gpu`, keyed by size
-(and format), that `GpuTile`s return to when dropped. Previews and export
-bands request the same sizes over and over, so nearly every allocation
-would be a reuse.
-
-**Tradeoffs.** Pooled memory stays allocated: it needs a cap (or to count
-against the residency budget) and trimming when sizes change. Reused textures
-hold stale data, which is fine because every kernel writes every texel it
-dispatches, but would hide a kernel that doesn't.
-
-## 2. GPU-side conversion to 8-bit before readback
-
-**Observation.** `Gpu::download` reads back 16 B/px `f32` tiles that are then
-converted to 8-bit (`tile_to_rgba8` for export, `encode_display_bmp` for
-previews). Earlier profiles blamed most of a GPU preview on readback, but
-pass timestamps (see 1) show most of that "waiting for the GPU" is the
-kernels themselves plus texture allocation. What remains attributable to
-readback is the copy out of the mapped buffer (1.8 ms of a 10.6 ms preview
-re-render; ~0.46 s of a 16K export) and part of the wait.
-
-**Idea.** A final kernel that unpremultiplies and quantises into an
-`rgba8unorm` texture cuts readback 4× for both previews and 8-bit exports.
-
-**Tradeoffs.** GPU rounding may differ from the CPU path by one level; a second
-implementation of the conversion to maintain; high-bit-depth exports would still
-need the `f32` path.
-
-## 3. Follow-ups to source residency
+## 2. Follow-ups to source residency
 
 Source images are resident on the GPU in the least invasive form: each
 pyramid level that fits is uploaded at import into an LRU-managed registry on
@@ -89,7 +57,7 @@ work to the GPU or save more memory:
   Resident levels could be dropped from the CPU and read back when the CPU
   path needs them (CPU backend, saving, background removal).
 
-## 4. Cheaper noise kernel
+## 3. Cheaper noise kernel
 
 **Observation.** The fractal Perlin noise kernel is about half of a CPU
 preview re-render of the test graph (10.9 ms of ~20 ms at 1080²), though only
@@ -100,6 +68,24 @@ from 1 to 8 threads, so the remaining lever is doing less work per pixel.
 depends only on the row (`hash_u(iy ^ hash_u(seed))` per octave and lattice
 row) can be computed once per row and octave instead of per pixel, removing
 about two thirds of the hash work. Integer-only, so bit-exact.
+
+## 4. GPU-side conversion to 8-bit before readback
+
+**Observation.** `Gpu::download` reads back 16 B/px `f32` tiles that are then
+converted to 8-bit (`tile_to_rgba8` for export, `encode_display_bmp` for
+previews). Earlier samply profiles blamed most of a GPU preview on readback,
+but pass timestamps showed that "waiting for the GPU" was mostly the kernels
+themselves and creating textures, which are now reused. What remains
+attributable to readback is small: the copy out of the mapped buffer
+(0.56 ms of a 4.2 ms 16K preview re-render; ~0.19 s of a 16K export) and
+the texture-to-buffer copy inside the ~3 ms wait.
+
+**Idea.** A final kernel that unpremultiplies and quantises into an
+`rgba8unorm` texture cuts readback 4× for both previews and 8-bit exports.
+
+**Tradeoffs.** GPU rounding may differ from the CPU path by one level; a second
+implementation of the conversion to maintain; high-bit-depth exports would still
+need the `f32` path.
 
 ## 5. Node output caching
 
@@ -149,7 +135,7 @@ calling thread (`CpuTile::new`) made no measurable difference.
 building the mip pyramid (`downsample`).
 
 **Ideas.** Better parallel granularity in `downsample`; building the pyramid
-on the GPU (see 3); building levels lazily.
+on the GPU (see 2); building levels lazily.
 
 ## 8. Fusing chains of per-pixel kernels
 
@@ -166,14 +152,3 @@ memory-bandwidth savings but a compiler-like project; spatial kernels
 **Idea.** Render a node's independent inputs with `rayon::join`. Requires `Ctx`
 to become `Sync` (its hash memo is a `RefCell`). Little expected gain: kernels
 already use all performance cores, and gaps between nodes are ~3% of a render.
-
-## 10. Parallel PNG compression
-
-**Observation.** PNG encoding is single-threaded: ~2.2 s for a 16K export
-(~75% fdeflate compression, ~25% row filtering; disk writes ~60 ms). It
-overlaps rendering, which still takes longer (16K PNG export: ~4.6 s CPU
-backend, ~3.6 s GPU backend), so it only matters once rendering gets
-faster than it.
-
-**Idea.** A multithreaded encoder (e.g. the `mtpng` crate), or compressing
-chunks of rows independently and concatenating the deflate streams.
