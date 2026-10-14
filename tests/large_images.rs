@@ -32,6 +32,21 @@ fn budget(ms: u64) -> Duration {
     if cfg!(debug_assertions) { Duration::from_millis(ms * 50) } else { Duration::from_millis(ms) }
 }
 
+/// With `DELOS_PROFILE` set, prints how long each kernel and transfer took
+/// during `f`, per backend (see `delos::engine::profile`).
+fn profiled<T>(engine: &Engine, f: impl FnOnce() -> T) -> T {
+    let on = std::env::var_os("DELOS_PROFILE").is_some();
+    engine.profile_samples();
+    engine.profile.enable(on);
+    let r = f();
+    engine.profile.enable(false);
+    let samples = engine.profile_samples();
+    if on {
+        print!("{}", delos::engine::profile::report(&samples));
+    }
+    r
+}
+
 fn timed<T>(label: &str, f: impl FnOnce() -> T) -> (T, Duration) {
     let t = Instant::now();
     let r = f();
@@ -114,9 +129,11 @@ fn preview_16k_is_interactive() {
 
         // Repeated parameter tweaks (what dragging a slider does).
         let (_, d) = timed("10 re-renders", || {
-            for _ in 0..10 {
-                render_to_cpu(&engine, &g, out, &fit, &no_cancel, &no_status).unwrap();
-            }
+            profiled(&engine, || {
+                for _ in 0..10 {
+                    render_to_cpu(&engine, &g, out, &fit, &no_cancel, &no_status).unwrap();
+                }
+            })
         });
         assert!(d < budget(3000), "re-render too slow: {d:?}");
     }
@@ -140,9 +157,11 @@ fn export_16k_png() {
         let path = dir.path().join("export.png");
         let progress = |_p: f32| {};
         let (_, d) = timed("16K PNG export", || {
-            let mut w = std::io::BufWriter::with_capacity(1 << 20, std::fs::File::create(&path).unwrap());
-            delos::formats::export(&engine, &g, out.into(), codec, &Default::default(), &mut w, &no_cancel, &progress, &no_status).unwrap();
-            w.into_inner().unwrap().sync_all().unwrap();
+            profiled(&engine, || {
+                let mut w = std::io::BufWriter::with_capacity(1 << 20, std::fs::File::create(&path).unwrap());
+                delos::formats::export(&engine, &g, out.into(), codec, &Default::default(), &mut w, &no_cancel, &progress, &no_status).unwrap();
+                w.into_inner().unwrap().sync_all().unwrap();
+            })
         });
         println!("16K PNG size: {} MiB", std::fs::metadata(&path).unwrap().len() >> 20);
         let info = png::Decoder::new(std::io::BufReader::new(std::fs::File::open(&path).unwrap())).read_info().unwrap();

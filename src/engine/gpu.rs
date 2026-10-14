@@ -4,14 +4,17 @@
 //! or the final display needs them.
 
 use super::kernels::{wgsl_source, Kernel, MAX_INPUTS, MAX_PARAMS};
+use super::profile::{Backend, Profile};
 use super::resident::Resident;
 use super::tile::{CpuTile, SampleMode};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba32Float;
 
+#[derive(Clone)]
 pub struct GpuTile {
     pub w: u32,
     pub h: u32,
@@ -54,16 +57,19 @@ pub struct Gpu {
     pub max_dim: u32,
     /// Source image levels kept on the GPU.
     pub resident: Resident,
+    profile: Profile,
+    /// Nanoseconds per timestamp tick, when the device supports timestamps.
+    timestamp_period: Option<f32>,
 }
 
 impl Gpu {
     /// Tries to acquire a GPU. Returns `None` (CPU fallback) when no adapter
     /// is available or `DELOS_NO_GPU` is set.
-    pub fn new() -> Option<Arc<Gpu>> {
+    pub fn new(profile: Profile) -> Option<Arc<Gpu>> {
         if std::env::var_os("DELOS_NO_GPU").is_some() {
             return None;
         }
-        let r = std::panic::catch_unwind(|| pollster::block_on(Self::init()));
+        let r = std::panic::catch_unwind(|| pollster::block_on(Self::init(profile)));
         match r {
             Ok(Ok(g)) => Some(Arc::new(g)),
             Ok(Err(e)) => {
@@ -77,7 +83,7 @@ impl Gpu {
         }
     }
 
-    async fn init() -> anyhow::Result<Gpu> {
+    async fn init(profile: Profile) -> anyhow::Result<Gpu> {
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions { power_preference: wgpu::PowerPreference::HighPerformance, ..Default::default() })
@@ -87,9 +93,17 @@ impl Gpu {
             anyhow::bail!("only a software adapter ({}) is available", info.name);
         }
         let limits = adapter.limits();
+        // Only used while profiling, but requesting it costs nothing.
+        let features = adapter.features() & wgpu::Features::TIMESTAMP_QUERY;
         let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor { label: Some("delos"), required_limits: limits.clone(), ..Default::default() })
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("delos"),
+                required_features: features,
+                required_limits: limits.clone(),
+                ..Default::default()
+            })
             .await?;
+        let timestamp_period = features.contains(wgpu::Features::TIMESTAMP_QUERY).then(|| queue.get_timestamp_period());
         let failed = Arc::new(AtomicBool::new(false));
         let f2 = failed.clone();
         device.on_uncaptured_error(Arc::new(move |e: wgpu::Error| {
@@ -149,6 +163,8 @@ impl Gpu {
             name: format!("{} ({:?})", info.name, info.backend),
             max_dim: limits.max_texture_dimension_2d,
             resident,
+            profile,
+            timestamp_period,
         })
     }
 
@@ -208,6 +224,7 @@ impl Gpu {
     }
 
     pub fn upload(&self, t: &CpuTile) -> GpuTile {
+        let start = self.profile.enabled().then(Instant::now);
         let tex = Self::make_texture(&self.device, t.w, t.h);
         self.queue.write_texture(
             wgpu::TexelCopyTextureInfo { texture: &tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
@@ -216,6 +233,9 @@ impl Gpu {
             wgpu::Extent3d { width: t.w, height: t.h, depth_or_array_layers: 1 },
         );
         let view = tex.create_view(&Default::default());
+        if let Some(start) = start {
+            self.profile.record("upload", Backend::Gpu, t.w as u64 * t.h as u64, start.elapsed());
+        }
         GpuTile { w: t.w, h: t.h, tex, view }
     }
 
@@ -237,6 +257,8 @@ impl Gpu {
             },
             wgpu::Extent3d { width: t.w, height: t.h, depth_or_array_layers: 1 },
         );
+        let pixels = t.w as u64 * t.h as u64;
+        let start = Instant::now();
         self.queue.submit([enc.finish()]);
         let (tx, rx) = std::sync::mpsc::channel();
         buf.map_async(wgpu::MapMode::Read, .., move |r| {
@@ -244,6 +266,10 @@ impl Gpu {
         });
         self.device.poll(wgpu::PollType::wait_indefinitely())?;
         rx.recv()??;
+        if self.profile.enabled() {
+            self.profile.record("readback wait", Backend::Gpu, pixels, start.elapsed());
+        }
+        let start = Instant::now();
         let mut out = CpuTile::new(t.w, t.h);
         {
             let view = buf.get_mapped_range(..)?;
@@ -255,15 +281,20 @@ impl Gpu {
             }
         }
         buf.unmap();
+        if self.profile.enabled() {
+            self.profile.record("readback copy", Backend::Gpu, pixels, start.elapsed());
+        }
         if !self.healthy() {
             anyhow::bail!("GPU reported an error");
         }
         Ok(out)
     }
 
+    /// Dispatches a kernel; `op` names it in profiles.
     #[allow(clippy::too_many_arguments)]
     pub fn run(
         &self,
+        op: &'static str,
         pipeline: &wgpu::ComputePipeline,
         inputs: &[GpuInput],
         node_map: [f32; 4],
@@ -306,13 +337,74 @@ impl Gpu {
             ],
         });
         let mut enc = self.device.create_command_encoder(&Default::default());
+        let timer = self.timer();
         {
-            let mut pass = enc.begin_compute_pass(&Default::default());
+            let mut pass = enc.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: Some(op),
+                timestamp_writes: timer.as_ref().map(|t| wgpu::ComputePassTimestampWrites {
+                    query_set: &t.queries,
+                    beginning_of_pass_write_index: Some(0),
+                    end_of_pass_write_index: Some(1),
+                }),
+            });
             pass.set_pipeline(pipeline);
             pass.set_bind_group(0, &bind, &[]);
             pass.dispatch_workgroups(w.div_ceil(8), h.div_ceil(8), 1);
         }
+        if let Some(t) = &timer {
+            enc.resolve_query_set(&t.queries, 0..2, &t.resolved, 0);
+            enc.copy_buffer_to_buffer(&t.resolved, 0, &t.readable, 0, 16);
+        }
         self.queue.submit([enc.finish()]);
+        if let Some(t) = timer {
+            self.collect(t, op, w as u64 * h as u64);
+        }
         GpuTile { w, h, tex: out, view: out_view }
     }
+
+    /// Queries timing one pass, while profiling on a device with timestamps.
+    fn timer(&self) -> Option<Timer> {
+        let period = self.timestamp_period.filter(|_| self.profile.enabled())?;
+        let buffer = |usage| {
+            self.device.create_buffer(&wgpu::BufferDescriptor { label: Some("timestamps"), size: 16, usage, mapped_at_creation: false })
+        };
+        Some(Timer {
+            queries: self.device.create_query_set(&wgpu::QuerySetDescriptor { label: None, ty: wgpu::QueryType::Timestamp, count: 2 }),
+            resolved: buffer(wgpu::BufferUsages::QUERY_RESOLVE | wgpu::BufferUsages::COPY_SRC),
+            readable: buffer(wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::COPY_DST),
+            period,
+        })
+    }
+
+    /// Records a submitted pass's GPU time once the GPU has run it (seen by
+    /// the next poll of the device).
+    fn collect(&self, t: Timer, op: &'static str, pixels: u64) {
+        let profile = self.profile.clone();
+        let buf = t.readable.clone();
+        t.readable.map_async(wgpu::MapMode::Read, .., move |r| {
+            if r.is_err() {
+                return;
+            }
+            let ticks = {
+                let Ok(view) = buf.get_mapped_range(..) else { return };
+                let ts: &[u64] = bytemuck::cast_slice(&view);
+                ts[1].saturating_sub(ts[0])
+            };
+            buf.unmap();
+            profile.record(op, Backend::Gpu, pixels, Duration::from_nanos((ticks as f64 * t.period as f64) as u64));
+        });
+    }
+
+    /// Waits for the GPU to finish everything submitted, so that every
+    /// kernel's timing has been recorded.
+    pub fn finish(&self) {
+        let _ = self.device.poll(wgpu::PollType::wait_indefinitely());
+    }
+}
+
+struct Timer {
+    queries: wgpu::QuerySet,
+    resolved: wgpu::Buffer,
+    readable: wgpu::Buffer,
+    period: f32,
 }

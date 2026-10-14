@@ -6,6 +6,7 @@ pub mod geom;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 pub mod kernels;
+pub mod profile;
 #[cfg(feature = "gpu")]
 pub mod resident;
 pub mod source;
@@ -15,6 +16,7 @@ use crate::graph::{Graph, Link, NodeId};
 use cache::Cache;
 use geom::{Map2, Request};
 use kernels::{Env, EnvInput, Kernel, MAX_PARAMS};
+use profile::{Backend, Profile};
 use source::SourceImage;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -56,12 +58,15 @@ pub struct Engine {
     pub gpu: Option<Arc<gpu::Gpu>>,
     pub use_gpu: AtomicBool,
     pub cache: Cache,
+    /// Per-operation timings, when enabled.
+    pub profile: Profile,
 }
 
 impl Engine {
     pub fn new(try_gpu: bool) -> Arc<Engine> {
+        let profile = Profile::default();
         #[cfg(feature = "gpu")]
-        let gpu = if try_gpu { gpu::Gpu::new() } else { None };
+        let gpu = if try_gpu { gpu::Gpu::new(profile.clone()) } else { None };
         #[cfg(not(feature = "gpu"))]
         let _ = try_gpu;
         Arc::new(Engine {
@@ -72,7 +77,18 @@ impl Engine {
             #[cfg(feature = "gpu")]
             gpu,
             cache: Cache::new(256 << 20),
+            profile,
         })
+    }
+
+    /// Takes the timings recorded so far, first waiting for the GPU to run
+    /// everything submitted so its kernels' timings are included.
+    pub fn profile_samples(&self) -> Vec<profile::Sample> {
+        #[cfg(feature = "gpu")]
+        if let Some(g) = &self.gpu {
+            g.finish();
+        }
+        self.profile.take()
     }
 
     pub fn backend_name(&self) -> String {
@@ -229,7 +245,8 @@ impl<'a> Ctx<'a> {
         if let Some(t) = self.source_on_gpu(img, req) {
             return t;
         }
-        Tile::Cpu(img.render(req))
+        let pixels = req.width as u64 * req.height as u64;
+        Tile::Cpu(self.engine.profile.time("source", Backend::Cpu, pixels, || img.render(req)))
     }
 
     /// `None` unless the GPU is in use and the level is resident (asking
@@ -247,7 +264,7 @@ impl<'a> Ctx<'a> {
         let (map, mode) = img.texel_map(level, req);
         let input = gpu::GpuInput { tile: Some(&tile), map: map.as_f32(), mode };
         let extent = [req.extent.w as f32, req.extent.h as f32];
-        let out = g.run(&pipeline, &[input], req.pixel_to_node().as_f32(), extent, &[0.0; MAX_PARAMS], req.width, req.height);
+        let out = g.run("source", &pipeline, &[input], req.pixel_to_node().as_f32(), extent, &[0.0; MAX_PARAMS], req.width, req.height);
         Some(Tile::Gpu(out))
     }
 
@@ -284,7 +301,7 @@ impl<'a> Ctx<'a> {
                         .zip(&owned)
                         .map(|(t, (map, mode))| gpu::GpuInput { tile: t.as_ref(), map: map.as_f32(), mode: *mode })
                         .collect();
-                    return Ok(Tile::Gpu(g.run(&pipeline, &gin, node_map, extent, &p, req.width, req.height)));
+                    return Ok(Tile::Gpu(g.run(k.name, &pipeline, &gin, node_map, extent, &p, req.width, req.height)));
                 }
             }
         }
@@ -300,7 +317,8 @@ impl<'a> Ctx<'a> {
             extent,
             p,
         };
-        Ok(Tile::Cpu(kernels::run_cpu(k, &env, req.width, req.height)))
+        let pixels = req.width as u64 * req.height as u64;
+        Ok(Tile::Cpu(self.engine.profile.time(k.name, Backend::Cpu, pixels, || kernels::run_cpu(k, &env, req.width, req.height))))
     }
 }
 
