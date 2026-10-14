@@ -3,34 +3,61 @@
 Performance improvements that have been identified but deferred. Ordered by
 priority: the expected gain weighed against effort and risk. Numbers come from
 the `large_images` tests on an M1 Pro (8 performance + 2 efficiency cores),
-measured with `samply` and confirmed with direct timing.
+measured with `samply` and confirmed with direct timing, and with the
+engine profile (`Engine::profile`): `tests/kernel_profile.rs` compares every
+kernel on both backends, and `DELOS_PROFILE=1` prints per-operation totals
+for the `large_images` tests.
 
 Profiling note: samply on macOS repeats a sleeping thread's last captured
 stack, so a blocked thread can look busy. Weight samples by CPU time
 (`threadCPUDelta`) and confirm surprising findings with direct timing before
 acting on them.
 
-## 1. GPU-side conversion to 8-bit before readback
+## 1. Reusing GPU textures and readback buffers
+
+**Observation.** Every GPU kernel writes into a newly created texture, and
+every readback into a new buffer. A new texture costs far more on the GPU
+than the kernel that fills it (on the M1 Pro, wgpu zero-fills it and Metal
+maps fresh memory; neither shows in pass timestamps):
+
+| solid kernel + wait | 512² | 1920×1080 | 16384×256 | 4096² |
+|---|---:|---:|---:|---:|
+| new output texture | 0.67 ms | 2.71 ms | 4.72 ms | 17.9 ms |
+| reused texture | 0.37 ms | 0.66 ms | 0.86 ms | 3.0 ms |
+
+In a 16K GPU preview re-render (~10.6 ms), kernels run for ~3.5 ms of GPU
+time, yet waiting for the readback takes 6.9 ms. The rest is allocation,
+zeroing and the copy to the readback buffer. Export bands are the same:
+~12.6 ms of kernels in a 25.6 ms wait per 4 Mpx band.
+
+**Idea.** A pool of textures and readback buffers on `Gpu`, keyed by size
+(and format), that `GpuTile`s return to when dropped. Previews and export
+bands request the same sizes over and over, so nearly every allocation
+would be a reuse.
+
+**Tradeoffs.** Pooled memory stays allocated: it needs a cap (or to count
+against the residency budget) and trimming when sizes change. Reused textures
+hold stale data, which is fine because every kernel writes every texel it
+dispatches, but would hide a kernel that doesn't.
+
+## 2. GPU-side conversion to 8-bit before readback
 
 **Observation.** `Gpu::download` reads back 16 B/px `f32` tiles that are then
 converted to 8-bit (`tile_to_rgba8` for export, `encode_display_bmp` for
-previews). With source images resident, readback is most of a GPU preview:
-68 of 92 samples on the rendering thread during 16K preview re-renders
-(~10 ms each), split between waiting for the GPU and copying rows.
+previews). Earlier profiles blamed most of a GPU preview on readback, but
+pass timestamps (see 1) show most of that "waiting for the GPU" is the
+kernels themselves plus texture allocation. What remains attributable to
+readback is the copy out of the mapped buffer (1.8 ms of a 10.6 ms preview
+re-render; ~0.46 s of a 16K export) and part of the wait.
 
 **Idea.** A final kernel that unpremultiplies and quantises into an
 `rgba8unorm` texture cuts readback 4× for both previews and 8-bit exports.
-
-**Measured.** In a 16K PNG export on the GPU backend, readback costs ~1.85 s
-of wall time, mostly waiting for the GPU to finish the band; the row copies in
-`Gpu::download` are ~0.4 s and the (now parallel) `tile_to_rgba8` ~0.1 s.
-Both would shrink or disappear.
 
 **Tradeoffs.** GPU rounding may differ from the CPU path by one level; a second
 implementation of the conversion to maintain; high-bit-depth exports would still
 need the `f32` path.
 
-## 2. Follow-ups to source residency
+## 3. Follow-ups to source residency
 
 Source images are resident on the GPU in the least invasive form: each
 pyramid level that fits is uploaded at import into an LRU-managed registry on
@@ -44,7 +71,7 @@ work to the GPU or save more memory:
   into a full-size intermediate tile. Saves a pass and a 16 B/px intermediate
   per frame, but changes the tile/kernel-input model.
 - **Pyramid generation on the GPU.** Upload level 0 only and build the other
-  levels with a compute kernel. Faster imports (see 6) and a quarter less
+  levels with a compute kernel. Faster imports (see 7) and a quarter less
   upload traffic; the integer averaging must match `downsample` exactly so
   CPU and GPU pyramids stay identical.
 - **Exact CPU/GPU sampling parity.** The GPU maps coordinates in `f32`
@@ -62,7 +89,7 @@ work to the GPU or save more memory:
   Resident levels could be dropped from the CPU and read back when the CPU
   path needs them (CPU backend, saving, background removal).
 
-## 3. Cheaper noise kernel
+## 4. Cheaper noise kernel
 
 **Observation.** The fractal Perlin noise kernel is about half of a CPU
 preview re-render of the test graph (10.9 ms of ~20 ms at 1080²), though only
@@ -74,7 +101,7 @@ depends only on the row (`hash_u(iy ^ hash_u(seed))` per octave and lattice
 row) can be computed once per row and octave instead of per pixel, removing
 about two thirds of the hash work. Integer-only, so bit-exact.
 
-## 4. Node output caching
+## 5. Node output caching
 
 **Observation.** Previews re-render the entire graph every frame. Dragging a
 slider on the last node recomputes everything upstream (noise, resize, …)
@@ -97,7 +124,7 @@ or two tiles of memory.
   copy.
 - Keys must include the full request (region, grid, sampling, `exact`).
 
-## 5. Band-parallel rendering
+## 6. Band-parallel rendering
 
 **Original premise (disproved).** Rendering one node at a time, each a
 separate parallel loop, was thought to leave cores idle between nodes.
@@ -116,15 +143,15 @@ resize, background removal) must not be split.
 **Also tried and dropped.** Zeroing new tiles in parallel instead of on the
 calling thread (`CpuTile::new`) made no measurable difference.
 
-## 6. Faster image import
+## 7. Faster image import
 
 **Observation.** Importing a 16K image takes ~150–350 ms, dominated by
 building the mip pyramid (`downsample`).
 
 **Ideas.** Better parallel granularity in `downsample`; building the pyramid
-on the GPU (see 2); building levels lazily.
+on the GPU (see 3); building levels lazily.
 
-## 7. Fusing chains of per-pixel kernels
+## 8. Fusing chains of per-pixel kernels
 
 **Observation.** Each node materialises a full tile, so a chain like
 invert → blend → over writes and reads the whole image several times; these
@@ -134,13 +161,13 @@ kernels are memory-bound.
 memory-bandwidth savings but a compiler-like project; spatial kernels
 (reflect, resample) need halo handling.
 
-## 8. Rendering independent inputs concurrently
+## 9. Rendering independent inputs concurrently
 
 **Idea.** Render a node's independent inputs with `rayon::join`. Requires `Ctx`
 to become `Sync` (its hash memo is a `RefCell`). Little expected gain: kernels
 already use all performance cores, and gaps between nodes are ~3% of a render.
 
-## 9. Parallel PNG compression
+## 10. Parallel PNG compression
 
 **Observation.** PNG encoding is single-threaded: ~2.2 s for a 16K export
 (~75% fdeflate compression, ~25% row filtering; disk writes ~60 ms). It
