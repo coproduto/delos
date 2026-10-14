@@ -4,27 +4,50 @@
 //! or the final display needs them.
 
 use super::kernels::{wgsl_source, Kernel, MAX_INPUTS, MAX_PARAMS};
+use super::pool::Pool;
 use super::profile::{Backend, Profile};
 use super::resident::Resident;
 use super::tile::{CpuTile, SampleMode};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 
 const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba32Float;
 
+/// A tile on the GPU. Clones share the texture, which goes back to the
+/// pool when the last one is dropped.
 #[derive(Clone)]
 pub struct GpuTile {
     pub w: u32,
     pub h: u32,
+    tex: Arc<Texture>,
+}
+
+struct Texture {
     tex: wgpu::Texture,
     view: wgpu::TextureView,
+    /// `None` for textures the pool doesn't own (resident source levels).
+    pool: Option<Weak<Pool>>,
+}
+
+impl Drop for Texture {
+    fn drop(&mut self) {
+        if let Some(pool) = self.pool.as_ref().and_then(Weak::upgrade) {
+            pool.put_texture(self.tex.clone(), self.view.clone());
+        }
+    }
+}
+
+impl GpuTile {
+    fn view(&self) -> &wgpu::TextureView {
+        &self.tex.view
+    }
 }
 
 impl From<super::resident::Level> for GpuTile {
     fn from(l: super::resident::Level) -> Self {
-        GpuTile { w: l.w, h: l.h, tex: l.tex, view: l.view }
+        GpuTile { w: l.w, h: l.h, tex: Arc::new(Texture { tex: l.tex, view: l.view, pool: None }) }
     }
 }
 
@@ -57,6 +80,8 @@ pub struct Gpu {
     pub max_dim: u32,
     /// Source image levels kept on the GPU.
     pub resident: Resident,
+    /// Idle textures and readback buffers kept for reuse.
+    pub pool: Arc<Pool>,
     profile: Profile,
     /// Nanoseconds per timestamp tick, when the device supports timestamps.
     timestamp_period: Option<f32>,
@@ -163,6 +188,7 @@ impl Gpu {
             name: format!("{} ({:?})", info.name, info.backend),
             max_dim: limits.max_texture_dimension_2d,
             resident,
+            pool: Arc::new(Pool::new()),
             profile,
             timestamp_period,
         })
@@ -223,34 +249,42 @@ impl Gpu {
         result
     }
 
+    /// A texture for a tile, from the pool when one of this size is idle.
+    fn tile(&self, w: u32, h: u32) -> GpuTile {
+        let (tex, view) = self.pool.texture(w, h, || Self::make_texture(&self.device, w, h));
+        GpuTile { w, h, tex: Arc::new(Texture { tex, view, pool: Some(Arc::downgrade(&self.pool)) }) }
+    }
+
     pub fn upload(&self, t: &CpuTile) -> GpuTile {
         let start = self.profile.enabled().then(Instant::now);
-        let tex = Self::make_texture(&self.device, t.w, t.h);
+        let tile = self.tile(t.w, t.h);
         self.queue.write_texture(
-            wgpu::TexelCopyTextureInfo { texture: &tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+            wgpu::TexelCopyTextureInfo { texture: &tile.tex.tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
             bytemuck::cast_slice(&t.data),
             wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(t.w * 16), rows_per_image: Some(t.h) },
             wgpu::Extent3d { width: t.w, height: t.h, depth_or_array_layers: 1 },
         );
-        let view = tex.create_view(&Default::default());
         if let Some(start) = start {
             self.profile.record("upload", Backend::Gpu, t.w as u64 * t.h as u64, start.elapsed());
         }
-        GpuTile { w: t.w, h: t.h, tex, view }
+        tile
     }
 
     pub fn download(&self, t: &GpuTile) -> anyhow::Result<CpuTile> {
         let row = t.w as u64 * 16;
         let padded = row.div_ceil(256) * 256;
-        let buf = self.device.create_buffer(&wgpu::BufferDescriptor {
-            label: Some("readback"),
-            size: padded * t.h as u64,
-            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
-            mapped_at_creation: false,
+        let size = padded * t.h as u64;
+        let buf = self.pool.buffer(size, || {
+            self.device.create_buffer(&wgpu::BufferDescriptor {
+                label: Some("readback"),
+                size,
+                usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+                mapped_at_creation: false,
+            })
         });
         let mut enc = self.device.create_command_encoder(&Default::default());
         enc.copy_texture_to_buffer(
-            wgpu::TexelCopyTextureInfo { texture: &t.tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
+            wgpu::TexelCopyTextureInfo { texture: &t.tex.tex, mip_level: 0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },
             wgpu::TexelCopyBufferInfo {
                 buffer: &buf,
                 layout: wgpu::TexelCopyBufferLayout { offset: 0, bytes_per_row: Some(padded as u32), rows_per_image: Some(t.h) },
@@ -281,6 +315,7 @@ impl Gpu {
             }
         }
         buf.unmap();
+        self.pool.put_buffer(buf);
         if self.profile.enabled() {
             self.profile.record("readback copy", Backend::Gpu, pixels, start.elapsed());
         }
@@ -322,9 +357,8 @@ impl Gpu {
             mapped_at_creation: false,
         });
         self.queue.write_buffer(&ubuf, 0, bytemuck::bytes_of(&u));
-        let out = Self::make_texture(&self.device, w, h);
-        let out_view = out.create_view(&Default::default());
-        let view_of = |i: usize| inputs.get(i).and_then(|x| x.tile).map(|t| &t.view).unwrap_or(&self.dummy);
+        let out = self.tile(w, h);
+        let view_of = |i: usize| inputs.get(i).and_then(|x| x.tile).map(GpuTile::view).unwrap_or(&self.dummy);
         let bind = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: None,
             layout: &self.layout,
@@ -333,7 +367,7 @@ impl Gpu {
                 wgpu::BindGroupEntry { binding: 1, resource: wgpu::BindingResource::TextureView(view_of(0)) },
                 wgpu::BindGroupEntry { binding: 2, resource: wgpu::BindingResource::TextureView(view_of(1)) },
                 wgpu::BindGroupEntry { binding: 3, resource: wgpu::BindingResource::TextureView(view_of(2)) },
-                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(&out_view) },
+                wgpu::BindGroupEntry { binding: 4, resource: wgpu::BindingResource::TextureView(out.view()) },
             ],
         });
         let mut enc = self.device.create_command_encoder(&Default::default());
@@ -359,7 +393,7 @@ impl Gpu {
         if let Some(t) = timer {
             self.collect(t, op, w as u64 * h as u64);
         }
-        GpuTile { w, h, tex: out, view: out_view }
+        out
     }
 
     /// Queries timing one pass, while profiling on a device with timestamps.

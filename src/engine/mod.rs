@@ -6,6 +6,8 @@ pub mod geom;
 #[cfg(feature = "gpu")]
 pub mod gpu;
 pub mod kernels;
+#[cfg(feature = "gpu")]
+pub mod pool;
 pub mod profile;
 #[cfg(feature = "gpu")]
 pub mod resident;
