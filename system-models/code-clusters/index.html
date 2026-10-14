@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delos Code Clusters</title>
+<style>
+:root {
+  --bg: #f7f6f2; --panel: #ffffff; --ink: #1d1d1f; --muted: #5d5d63; --line: #d6d4cc; --edge: #8c8a83;
+  --app: #2f6fdb; --app-bg: #eaf1fd;
+  --doc: #7b46c9; --doc-bg: #f2ecfb;
+  --nod: #1f8a5b; --nod-bg: #e6f5ee;
+  --ren: #b8650f; --ren-bg: #fdf1e3;
+  --good: #1f8a5b; --warn: #b8650f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141417; --panel: #1d1d22; --ink: #ececf0; --muted: #a2a2ac; --line: #34343c; --edge: #6e6e78;
+    --app: #7aa7ff; --app-bg: #1b2538;
+    --doc: #b791f5; --doc-bg: #2a2140;
+    --nod: #5ccf98; --nod-bg: #16301f;
+    --ren: #f0a656; --ren-bg: #33261a;
+    --good: #5ccf98; --warn: #f0a656;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141417; --panel: #1d1d22; --ink: #ececf0; --muted: #a2a2ac; --line: #34343c; --edge: #6e6e78;
+  --app: #7aa7ff; --app-bg: #1b2538;
+  --doc: #b791f5; --doc-bg: #2a2140;
+  --nod: #5ccf98; --nod-bg: #16301f;
+  --ren: #f0a656; --ren-bg: #33261a;
+  --good: #5ccf98; --warn: #f0a656;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
+main { max-width: 1080px; margin: 0 auto; padding: 32px 16px 72px; }
+h1 { font-size: 27px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 19px; margin: 44px 0 10px; }
+h3 { font-size: 16px; margin: 0; }
+p { margin: 0 0 12px; }
+.lede { color: var(--muted); max-width: 780px; margin-bottom: 22px; }
+code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.86em; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 18px 0 8px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.stat b { display: block; font-size: 22px; }
+.stat span { color: var(--muted); font-size: 13px; }
+.diagram { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 10px; overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+svg text { fill: var(--ink); font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
+svg .t1 { font-size: 13px; font-weight: 650; }
+svg .t2 { font-size: 11px; fill: var(--muted); }
+svg .band { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; fill: var(--muted); }
+svg .e { stroke: var(--edge); fill: none; stroke-linecap: round; opacity: 0.55; }
+.legend { color: var(--muted); font-size: 13px; margin-top: 8px; }
+.findings { padding-left: 20px; }
+.findings li { margin-bottom: 10px; }
+.region { margin-top: 26px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; margin-top: 8px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-left: 5px solid var(--c); border-radius: 10px; padding: 14px 16px; }
+.card .id { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--c); font-weight: 700; }
+.card .meta { color: var(--muted); font-size: 13px; margin: 2px 0 8px; }
+.card p { font-size: 14px; }
+.card dl { margin: 8px 0 0; font-size: 13px; display: grid; grid-template-columns: 82px 1fr; gap: 4px 8px; }
+.card dt { color: var(--muted); }
+.card dd { margin: 0; overflow-wrap: anywhere; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.tag { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; background: var(--cb); color: var(--c); }
+.bar { display: inline-block; height: 7px; border-radius: 4px; background: var(--c); vertical-align: middle; margin-right: 6px; }
+.app { --c: var(--app); --cb: var(--app-bg); }
+.doc { --c: var(--doc); --cb: var(--doc-bg); }
+.nod { --c: var(--nod); --cb: var(--nod-bg); }
+.ren { --c: var(--ren); --cb: var(--ren-bg); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: 0; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.note { color: var(--muted); font-size: 13.5px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Delos code clusters</h1>
+<p class="lede">I built an item-level reference graph of the <code>delos</code> crate and partitioned it into groups that reference each other heavily and the rest of the code rarely. The resulting clusters often cut across files and directories. They show which code really moves together, where the seams are, and which parts can be reviewed as black boxes.</p>
+
+<div class="stats">
+  <div class="stat"><b>778</b><span>items (functions, types, methods, constants)</span></div>
+  <div class="stat"><b>2,883</b><span>reference edges (6,981 references)</span></div>
+  <div class="stat"><b>12</b><span>clusters, in 4 regions</span></div>
+  <div class="stat"><b>80%</b><span>of references stay inside a cluster</span></div>
+  <div class="stat"><b>Q = 0.67</b><span>modularity (96% stable over 30 seeds)</span></div>
+</div>
+
+<h2>Cluster map</h2>
+<div class="diagram">
+<svg viewBox="0 0 1000 610" role="img" aria-label="Twelve clusters arranged in four bands, connected by edges whose thickness is the number of references between them">
+  <text class="band" x="20" y="28">APPLICATION</text>
+  <text class="band" x="20" y="198">DOCUMENT · NODE DEFINITIONS</text>
+  <text class="band" x="20" y="378">RENDERING</text>
+  <!-- edges: stroke width = 1.5 + refs/20 -->
+  <line class="e" x1="380" y1="80" x2="380" y2="250" stroke-width="11.3"/>   <!-- 1-2 197 -->
+  <line class="e" x1="380" y1="250" x2="640" y2="250" stroke-width="6.8"/>   <!-- 0-1 106 -->
+  <line class="e" x1="640" y1="250" x2="870" y2="250" stroke-width="6.3"/>   <!-- 0-3 96 -->
+  <line class="e" x1="380" y1="80" x2="760" y2="80" stroke-width="6.25"/>    <!-- 2-8 95 -->
+  <line class="e" x1="380" y1="430" x2="640" y2="430" stroke-width="5.15"/>  <!-- 4-7 73 -->
+  <line class="e" x1="640" y1="250" x2="640" y2="430" stroke-width="4.9"/>   <!-- 0-4 68 -->
+  <line class="e" x1="130" y1="250" x2="380" y2="250" stroke-width="4.75"/>  <!-- 1-9 65 -->
+  <line class="e" x1="380" y1="250" x2="640" y2="430" stroke-width="4.5"/>   <!-- 1-4 60 -->
+  <path class="e" d="M380 80 Q 650 150 870 250" stroke-width="4.4"/>          <!-- 2-3 58 -->
+  <line class="e" x1="380" y1="80" x2="640" y2="430" stroke-width="4.15"/>   <!-- 2-4 53 -->
+  <path class="e" d="M130 279 Q 500 400 870 279" stroke-width="4.0"/>         <!-- 3-9 50 -->
+  <path class="e" d="M380 279 Q 625 345 870 279" stroke-width="3.85"/>        <!-- 1-3 47 -->
+  <line class="e" x1="380" y1="80" x2="640" y2="250" stroke-width="3.8"/>    <!-- 0-2 46 -->
+  <line class="e" x1="130" y1="80" x2="380" y2="80" stroke-width="3.6"/>     <!-- 2-6 42 -->
+  <line class="e" x1="640" y1="430" x2="870" y2="430" stroke-width="3.6"/>   <!-- 4-5 42 -->
+  <line class="e" x1="760" y1="80" x2="640" y2="430" stroke-width="3.45"/>   <!-- 4-8 39 -->
+  <line class="e" x1="870" y1="430" x2="870" y2="555" stroke-width="2.0"/>   <!-- 5-10 10 -->
+  <line class="e" x1="130" y1="430" x2="380" y2="430" stroke-width="1.55"/>  <!-- 7-11 1 -->
+  <!-- boxes -->
+  <g style="--c: var(--app); --cb: var(--app-bg)">
+    <rect x="35" y="51" width="190" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="130" y="76" text-anchor="middle">C6 · Codecs &amp; export</text>
+    <text class="t2" x="130" y="94" text-anchor="middle">60 items · cohesion 0.73</text>
+    <rect x="285" y="51" width="190" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="380" y="76" text-anchor="middle">C2 · App shell &amp; session</text>
+    <text class="t2" x="380" y="94" text-anchor="middle">90 items · cohesion 0.63</text>
+    <rect x="645" y="51" width="230" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="760" y="76" text-anchor="middle">C8 · Worker, sources &amp; projects</text>
+    <text class="t2" x="760" y="94" text-anchor="middle">54 items · cohesion 0.58</text>
+  </g>
+  <g style="--c: var(--doc); --cb: var(--doc-bg)">
+    <rect x="35" y="221" width="190" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="130" y="246" text-anchor="middle">C9 · Expression parser</text>
+    <text class="t2" x="130" y="264" text-anchor="middle">28 items · cohesion 0.66</text>
+    <rect x="275" y="221" width="210" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="380" y="246" text-anchor="middle">C1 · Graph doc &amp; editor</text>
+    <text class="t2" x="380" y="264" text-anchor="middle">102 items · cohesion 0.64</text>
+  </g>
+  <g style="--c: var(--nod); --cb: var(--nod-bg)">
+    <rect x="545" y="221" width="190" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="640" y="246" text-anchor="middle">C0 · Node kind catalogue</text>
+    <text class="t2" x="640" y="264" text-anchor="middle">113 items · cohesion 0.57</text>
+    <rect x="775" y="221" width="190" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="870" y="246" text-anchor="middle">C3 · Parameter schema</text>
+    <text class="t2" x="870" y="264" text-anchor="middle">87 items · cohesion 0.70</text>
+  </g>
+  <g style="--c: var(--ren); --cb: var(--ren-bg)">
+    <rect x="35" y="401" width="190" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="130" y="426" text-anchor="middle">C11 · Blend-mode math</text>
+    <text class="t2" x="130" y="444" text-anchor="middle">14 items · cohesion 0.97</text>
+    <rect x="285" y="401" width="190" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="380" y="426" text-anchor="middle">C7 · CPU pixel kernels</text>
+    <text class="t2" x="380" y="444" text-anchor="middle">56 items · cohesion 0.77</text>
+    <rect x="535" y="401" width="210" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="640" y="426" text-anchor="middle">C4 · ROI render contract</text>
+    <text class="t2" x="640" y="444" text-anchor="middle">78 items · cohesion 0.67</text>
+    <rect x="775" y="401" width="190" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="870" y="426" text-anchor="middle">C5 · GPU backend</text>
+    <text class="t2" x="870" y="444" text-anchor="middle">73 items · cohesion 0.82</text>
+    <rect x="775" y="526" width="190" height="58" rx="9" fill="var(--cb)" stroke="var(--c)" stroke-width="1.5"/>
+    <text class="t1" x="870" y="551" text-anchor="middle">C10 · GPU residency</text>
+    <text class="t2" x="870" y="569" text-anchor="middle">23 items · cohesion 0.86</text>
+  </g>
+</svg>
+</div>
+<p class="legend">Edge thickness shows the number of references between two clusters. All seams of 39 or more references are drawn, plus the weak links to C10 and C11. <em>Cohesion</em> is the share of a cluster's references that stay inside it (1 − conductance). The band labels are only for reading the map. The algorithm's own coarse level is described in the "Regions" note under Method.</p>
+
+<h2>What the clusters say</h2>
+<ol class="findings">
+  <li><b>Clusters describe the code's real structure better than its file layout.</b> The 12 clusters keep 80% of references internal (modularity 0.67). The 30 files keep only 55% (0.48), and the 4 top-level directories keep 78% (0.51), even though they are three times coarser. Files are too fine and directories mix concerns.</li>
+  <li><b><code>NodeKind</code> is a cross-cutting seam, not a module.</b> The trait's methods spread over five clusters by role. <code>name/category/inputs/size/input_map</code> belong to C0, <code>params/overlays</code> to C3, <code>render/render_output</code> to C4, <code>edit_view/outputs</code> to C1 and <code>id</code> to C9. Each kind's <code>impl</code> splits the same way. Adding a node kind is therefore a change to four or five clusters even though it touches only one file. Review it as a cross-cutting change.</li>
+  <li><b>Export is the cleanest feature slice.</b> C6 runs top to bottom: codecs and banded rendering in <code>formats.rs</code>, <code>Worker::export</code>, <code>ExportDialog</code>, <code>ExportState</code> and the platform save-target picker. Export changes can be reasoned about inside one cluster, even though it spans five files and three layers.</li>
+  <li><b>Four clusters are near black boxes.</b> Blend-mode math (0.97), GPU residency (0.86), the GPU backend (0.82) and the CPU kernels (0.77) have narrow interfaces. Humans can review these at the boundary, for example "does the <code>Kernel</code> table still mean the same thing?", rather than line by line.</li>
+  <li><b>Decisions ripple through the low-cohesion clusters.</b> The Node kind catalogue (0.57), Worker/sources/projects (0.58), App shell (0.63) and Graph document (0.64) leak most. The heaviest seam in the system is <b>C1 ↔ C2 (197 refs)</b>, where the app shell edits the graph. Next come C0 ↔ C1 (106), C0 ↔ C3 (96) and the UI ↔ worker message channel C2 ↔ C8 (95, through <code>Msg</code> and <code>pump</code>).</li>
+  <li><b>Several files hold two or three concerns.</b> <code>engine/source.rs</code> splits into storage and pyramids (C8, with projects) and rendering (C4). <code>expr.rs</code> splits into printing (C1, with the graph) and parsing (C9). <code>engine/kernels.rs</code> splits three ways: CPU kernels (C7), blend math (C11) and WGSL assembly (C5). <code>ui/state.rs</code> splits into shell state (C2), graph actions (C1) and export state (C6). These are natural split points if those files grow.</li>
+  <li><b>Some UI code clusters with its domain, not with <code>ui/</code>.</b> The graph editor (<code>graph_view.rs</code>, <code>NodePanel</code>, <code>LayerStack</code>) belongs to the graph document. The parameter form (<code>ParamField</code>) belongs to the parameter schema. Only the shell, the canvas view and session handling form a "UI" cluster.</li>
+</ol>
+
+<h2>The clusters</h2>
+
+<div class="region">Application</div>
+<div class="cards">
+  <div class="card app">
+    <span class="id">C2</span><h3>App shell &amp; session</h3>
+    <div class="meta">90 items · ~1,900 lines · cohesion 0.63</div>
+    <div class="tags"><span class="tag">ui</span><span class="tag">state</span><span class="tag">undo</span><span class="tag">session</span><span class="tag">platform</span><span class="tag">canvas</span></div>
+    <p>Everything the user is "inside": the <code>App</code> signal state with undo/redo history, toasts and canvas fitting, the root components (<code>Root</code>, <code>Toolbar</code>, <code>Footer</code>, <code>ProjectMenu</code>), and <code>pump</code>, which applies worker messages to UI state. It also holds the canvas <code>ImageView</code> with its WYSIWYG <code>render_overlay</code>, quick mode vs project sessions with autosave, and the platform glue for the frame server, pickers and confirm dialogs.</p>
+    <dl><dt>Files</dt><dd>ui/state 25, ui/session 24, ui/mod 12, ui/platform 11, ui/image_view 5, project 3, …</dd>
+    <dt>Interface</dt><dd><code>ImageView</code>, <code>App</code>, <code>pump</code>, <code>render_overlay</code>, <code>Toolbar</code></dd>
+    <dt>Neighbours</dt><dd>C1 (197), C8 (95), C3 (58), C4 (53)</dd></dl>
+  </div>
+  <div class="card app">
+    <span class="id">C8</span><h3>Worker, source images &amp; projects</h3>
+    <div class="meta">54 items · ~760 lines · cohesion 0.58</div>
+    <div class="tags"><span class="tag">worker</span><span class="tag">io</span><span class="tag">projects</span><span class="tag">source-storage</span></div>
+    <p>Background work and persistence. This covers the <code>Worker</code> (latest-wins previews, imports, project create/open/save/share), the <code>Msg</code>/<code>Frame</code> protocol back to the UI, and <code>Project</code> (atomic writes, input syncing, archive pack/unpack). It also includes the <em>storage</em> side of <code>SourceImage</code>: decoding into a mip pyramid, levels and the project-file tag.</p>
+    <dl><dt>Files</dt><dd>project 21, worker 19, engine/source 14</dd>
+    <dt>Interface</dt><dd><code>Msg</code>, <code>SourceImage</code>, <code>Frame</code>, <code>Worker::import</code>, <code>Project</code></dd>
+    <dt>Neighbours</dt><dd>C2 (95), C4 (39), C6 (32), C1 (28)</dd></dl>
+  </div>
+  <div class="card app">
+    <span class="id">C6</span><h3>Codecs &amp; export</h3>
+    <div class="meta">60 items · ~560 lines · cohesion 0.73</div>
+    <div class="tags"><span class="tag">formats</span><span class="tag">export</span><span class="tag">feature-slice</span></div>
+    <p>A vertical feature. It contains the <code>Codec</code> trait with <code>Png</code> and <code>ImageCrate</code>, and the banded renderers (<code>BandSource</code>, <code>GraphBands</code>, <code>Prefetched</code>) that keep full-resolution images out of memory. It also holds the worker export job and its destinations, and the UI end: <code>ExportDialog</code>, <code>ExportState</code>, <code>App::export_pressed</code> and <code>SaveTarget</code>.</p>
+    <dl><dt>Files</dt><dd>formats 46, worker 4, ui/platform 4, ui/state 3, ui/dialogs 2</dd>
+    <dt>Interface</dt><dd><code>Worker::export</code>, <code>ExportState</code>, <code>ExportDialog</code>, <code>GraphBands</code></dd>
+    <dt>Neighbours</dt><dd>C2 (42), C8 (32), C1 (29)</dd></dl>
+  </div>
+</div>
+
+<div class="region">Document</div>
+<div class="cards">
+  <div class="card doc">
+    <span class="id">C1</span><h3>Graph document &amp; graph editor</h3>
+    <div class="meta">102 items · ~1,600 lines · cohesion 0.64</div>
+    <div class="tags"><span class="tag">model</span><span class="tag">graph</span><span class="tag">editor-ui</span><span class="tag">serialisation-out</span></div>
+    <p>The document model is <code>Graph</code>, <code>Node</code>, <code>Link</code> and <code>NodeId</code>, with connect/unlink, size propagation, space maps, stack chains, structural hashing and image GC. The tools that manipulate it most closely cluster with it. These are the node-graph editor (<code>graph_view</code>), the inspector's <code>NodePanel</code> and <code>LayerStack</code>, <code>App</code>'s graph actions (add/delete/select/edit) and the expression <em>printer</em> (<code>Printer</code>, <code>Doc</code>, <code>to_text</code>).</p>
+    <dl><dt>Files</dt><dd>graph 44, ui/graph_view 18, expr 14, ui/state 9, nodes/mod 9, ui/inspector 4</dd>
+    <dt>Interface</dt><dd><code>Node</code>, <code>Graph</code>, <code>finish_import</code>, <code>NodePanel</code>, <code>NodeId</code></dd>
+    <dt>Neighbours</dt><dd>C2 (197), C0 (106), C9 (65), C4 (60)</dd></dl>
+  </div>
+  <div class="card doc">
+    <span class="id">C9</span><h3>Expression parser &amp; builder</h3>
+    <div class="meta">28 items · ~420 lines · cohesion 0.66</div>
+    <div class="tags"><span class="tag">expr</span><span class="tag">parsing</span><span class="tag">serialisation-in</span></div>
+    <p>Text into graph. <code>Parser</code> produces <code>Sexp</code> values with positions, and <code>Builder</code> turns them into nodes, inputs, attributes and <code>def</code> references, using <code>NodeKind::id</code> to find kinds. The printer lives in C1, so the file format's two directions belong to different clusters.</p>
+    <dl><dt>Files</dt><dd>expr 27, nodes/mod 1</dd>
+    <dt>Interface</dt><dd><code>parse_value</code>, <code>Builder::fill</code>, <code>NodeKind::id</code>, <code>Builder::attribute</code></dd>
+    <dt>Neighbours</dt><dd>C1 (65), C3 (50), C0 (14), C8 (13)</dd></dl>
+  </div>
+</div>
+
+<div class="region">Node definitions</div>
+<div class="cards">
+  <div class="card nod">
+    <span class="id">C0</span><h3>Node kind catalogue</h3>
+    <div class="meta">113 items · ~440 lines · cohesion 0.57</div>
+    <div class="tags"><span class="tag">nodes</span><span class="tag">metadata</span><span class="tag">sizing</span><span class="tag">registry</span></div>
+    <p>What each kind <em>is</em> and what shape it produces. This is the <code>NodeKind</code> trait's identity and shape methods, every kind's implementation of them (Blend, Clip, Invert, Reflect, Stack, Resize, Downscale, BackgroundRemoval, …), the <code>registry</code>, <code>Category</code> and <code>geom::Size</code>. It has many small items and the lowest cohesion, because every other region asks it questions.</p>
+    <dl><dt>Files</dt><dd>nodes/basic 62, nodes/resize 18, nodes/mod 15, nodes/bgremove 9, engine/geom 4</dd>
+    <dt>Interface</dt><dd><code>Size</code>, <code>Params::f</code>, <code>Category</code>, <code>NodeKind</code></dd>
+    <dt>Neighbours</dt><dd>C1 (106), C3 (96), C4 (68), C2 (46)</dd></dl>
+  </div>
+  <div class="card nod">
+    <span class="id">C3</span><h3>Parameter schema &amp; parametric kinds</h3>
+    <div class="meta">87 items · ~700 lines · cohesion 0.70</div>
+    <div class="tags"><span class="tag">nodes</span><span class="tag">params</span><span class="tag">overlays</span><span class="tag">inspector-forms</span><span class="tag">generators</span><span class="tag">splits</span></div>
+    <p>The declarative half of the node system: <code>ParamDef</code>/<code>ParamKind</code>/<code>Value</code>/<code>Params</code>, the WYSIWYG <code>Overlay</code> descriptions and each kind's <code>params()</code>/<code>overlays()</code>. It also has the choice tables (<code>BLEND_MODES</code>, <code>FILTERS</code>, …) and the inspector's generated <code>ParamField</code> form. Generators and splits sit here entirely, because a generator is little more than its parameter set.</p>
+    <dl><dt>Files</dt><dd>nodes/mod 26, nodes/generators 20, nodes/split 13, nodes/basic 10, ui/inspector 7, nodes/resize 6</dd>
+    <dt>Interface</dt><dd><code>Value</code>, <code>Overlay</code>, <code>Split</code>, <code>ParamDef</code>, <code>Params</code></dd>
+    <dt>Neighbours</dt><dd>C0 (96), C2 (58), C9 (50), C1 (47)</dd></dl>
+  </div>
+</div>
+
+<div class="region">Rendering</div>
+<div class="cards">
+  <div class="card ren">
+    <span class="id">C4</span><h3>Region-of-interest render contract</h3>
+    <div class="meta">78 items · ~690 lines · cohesion 0.67</div>
+    <div class="tags"><span class="tag">engine</span><span class="tag">geometry</span><span class="tag">requests</span><span class="tag">render</span></div>
+    <p>How a node gets asked for pixels. It contains <code>Request</code>, <code>Rect</code>, <code>Map1</code>/<code>Map2</code>, <code>Sampling</code>, <code>Tile</code>, and the per-render <code>Ctx</code> (<code>render_input</code>, <code>kernel</code>, <code>source_on_gpu</code>, cancellation). It also holds <code>SourceImage::render</code> and <b>every kind's <code>render()</code></b>. Rendering code for node kinds clusters with the engine rather than with the kinds' own definitions.</p>
+    <dl><dt>Files</dt><dd>engine/geom 30, engine/mod 19, nodes/basic 9, engine/source 6, engine/tile 4, …</dd>
+    <dt>Interface</dt><dd><code>BackgroundRemoval::render</code>, <code>Ctx::kernel</code>, <code>Map2</code>, <code>SampleMode</code>, <code>Rect</code></dd>
+    <dt>Neighbours</dt><dd>C7 (73), C0 (68), C1 (60), C2 (53), C5 (42)</dd></dl>
+  </div>
+  <div class="card ren">
+    <span class="id">C7</span><h3>CPU pixel kernels</h3>
+    <div class="meta">56 items · ~940 lines · cohesion 0.77</div>
+    <div class="tags"><span class="tag">engine</span><span class="tag">kernels</span><span class="tag">cpu</span><span class="tag">sampling</span></div>
+    <p>The <code>Kernel</code> table (<code>NOISE</code>, <code>VORONOI</code>, <code>MANDELBROT</code>, <code>RESAMPLE</code>, …) with its CPU implementations, <code>Env</code>/<code>EnvInput</code> sampling, <code>run_cpu</code>, <code>CpuTile</code> and premultiplied-pixel helpers. Number-crunching from other files also lands here: the Fourier resampler, the background-removal mask and <code>tile_to_rgba8</code>.</p>
+    <dl><dt>Files</dt><dd>engine/kernels 34, engine/tile 13, nodes/bgremove 4, formats 3, nodes/resize 2</dd>
+    <dt>Interface</dt><dd><code>CpuTile</code>, <code>EnvInput::sample_row</code>, <code>Kernel</code>, <code>run_cpu</code></dd>
+    <dt>Neighbours</dt><dd>C4 (73), C5 (28), C3 (8)</dd></dl>
+  </div>
+  <div class="card ren">
+    <span class="id">C5</span><h3>GPU backend &amp; engine services</h3>
+    <div class="meta">73 items · ~850 lines · cohesion 0.82</div>
+    <div class="tags"><span class="tag">engine</span><span class="tag">gpu</span><span class="tag">wgpu</span><span class="tag">pooling</span><span class="tag">profiling</span><span class="tag">cache</span></div>
+    <p>The long-lived <code>Engine</code> and everything it owns: <code>Gpu</code> (init, lazy pipelines, upload/download, timers), <code>GpuTile</code>, the texture/readback <code>Pool</code>, <code>Profile</code> timing, the byte-budgeted <code>Cache</code>, and the WGSL prelude and shader assembly.</p>
+    <dl><dt>Files</dt><dd>engine/gpu 20, engine/pool 19, engine/profile 12, engine/mod 9, engine/kernels 7, engine/cache 6</dd>
+    <dt>Interface</dt><dd><code>Engine</code>, <code>GpuTile</code>, <code>Gpu::upload</code>, <code>Gpu::pipeline</code>, <code>Gpu::run</code></dd>
+    <dt>Neighbours</dt><dd>C4 (42), C7 (28), C10 (10)</dd></dl>
+  </div>
+  <div class="card ren">
+    <span class="id">C10</span><h3>GPU residency</h3>
+    <div class="meta">23 items · ~230 lines · cohesion 0.86</div>
+    <div class="tags"><span class="tag">engine</span><span class="tag">gpu</span><span class="tag">memory-budget</span><span class="tag">background-upload</span></div>
+    <p>Exactly <code>engine/resident.rs</code>. Source pyramid levels are uploaded once on a background thread under a byte budget, with LRU eviction, and shared by every render. Only 25 references leave the cluster, and it is the only cluster that maps one-to-one onto a file.</p>
+    <dl><dt>Files</dt><dd>engine/resident 23</dd>
+    <dt>Interface</dt><dd><code>Resident::get</code>, <code>queue</code>, <code>prefetch</code>, <code>is_resident</code></dd>
+    <dt>Neighbours</dt><dd>C8 (14), C5 (10)</dd></dl>
+  </div>
+  <div class="card ren">
+    <span class="id">C11</span><h3>Blend-mode math</h3>
+    <div class="meta">14 items · ~120 lines · cohesion 0.97</div>
+    <div class="tags"><span class="tag">engine</span><span class="tag">pure-functions</span><span class="tag">leaf</span></div>
+    <p>Pure colour arithmetic in <code>kernels.rs</code>: <code>blend_color</code>, <code>screen</code>, <code>soft_light</code>, <code>set_lum</code>, <code>clip_color</code> and similar. It has one outgoing reference, as the CPU <code>BLEND</code> kernel calls <code>blend_color</code>. It is the safest code in the project to treat as a black box.</p>
+    <dl><dt>Files</dt><dd>engine/kernels 14</dd>
+    <dt>Interface</dt><dd><code>blend_color</code></dd>
+    <dt>Neighbours</dt><dd>C7 (1)</dd></dl>
+  </div>
+</div>
+
+<h2>How files divide among clusters</h2>
+<p class="note">The number of items from each file in each cluster. Files not listed fall almost entirely into one cluster: <code>graph_view</code>, <code>graph</code> → C1. <code>session</code>, <code>image_view</code>, <code>ui/mod</code> → C2. <code>gpu</code>, <code>pool</code>, <code>profile</code>, <code>cache</code> → C5. <code>resident</code> → C10.</p>
+<div class="tablewrap"><table>
+<tr><th>File</th><th>Split</th><th>Reading</th></tr>
+<tr><td><code>engine/kernels.rs</code></td><td>C7 34 · C11 14 · C5 7 · C3 1</td><td>CPU kernels, blend math and WGSL assembly are three separable parts</td></tr>
+<tr><td><code>engine/source.rs</code></td><td>C8 14 · C4 6</td><td>Storage/pyramid vs render-time sampling</td></tr>
+<tr><td><code>engine/mod.rs</code></td><td>C4 19 · C5 9 · C6 1</td><td>Per-render <code>Ctx</code> vs long-lived <code>Engine</code></td></tr>
+<tr><td><code>engine/tile.rs</code></td><td>C7 13 · C4 4</td><td>CPU pixel storage vs the <code>Tile</code> abstraction</td></tr>
+<tr><td><code>engine/geom.rs</code></td><td>C4 30 · C0 4 · C2 1</td><td><code>Size</code> is node-catalogue vocabulary, the rest is request geometry</td></tr>
+<tr><td><code>expr.rs</code></td><td>C9 27 · C1 14 · C3 1</td><td>Parsing vs printing</td></tr>
+<tr><td><code>nodes/basic.rs</code></td><td>C0 62 · C3 10 · C4 9 · C1 2</td><td>Each kind split by trait method: metadata / params / render</td></tr>
+<tr><td><code>nodes/mod.rs</code></td><td>C3 26 · C0 15 · C1 9 · C4 2 · C9 1</td><td>The <code>NodeKind</code> trait itself, spread over five clusters</td></tr>
+<tr><td><code>nodes/resize.rs</code></td><td>C0 18 · C3 6 · C4 2 · C7 2</td><td>Same pattern, plus the Fourier resampler in C7</td></tr>
+<tr><td><code>nodes/bgremove.rs</code></td><td>C0 9 · C7 4 · C3 2 · C4 1</td><td>Mask computation is kernel-like</td></tr>
+<tr><td><code>ui/state.rs</code></td><td>C2 25 · C1 9 · C6 3</td><td>Shell state, graph actions, export state</td></tr>
+<tr><td><code>ui/inspector.rs</code></td><td>C3 7 · C1 4 · C2 2</td><td>Param forms, node panel and layer stack, shell panels</td></tr>
+<tr><td><code>worker.rs</code></td><td>C8 19 · C6 4 · C2 1 · C4 1</td><td>Export job belongs to the export slice</td></tr>
+<tr><td><code>ui/platform.rs</code></td><td>C2 11 · C6 4</td><td>Frame serving vs save-target picking</td></tr>
+<tr><td><code>formats.rs</code>, <code>project.rs</code></td><td>C6 46 · C7 3 / C8 21 · C2 3</td><td>Nearly pure</td></tr>
+</table></div>
+
+<h2>Seams and shared vocabulary</h2>
+<div class="cols">
+<div>
+<p class="note">The heaviest links between clusters (raw references). A change on either side is likely to need a matching change on the other.</p>
+<div class="tablewrap"><table>
+<tr><th>Seam</th><th class="n">Refs</th></tr>
+<tr><td>C1 Graph doc ↔ C2 App shell</td><td class="n">197</td></tr>
+<tr><td>C0 Catalogue ↔ C1 Graph doc</td><td class="n">106</td></tr>
+<tr><td>C0 Catalogue ↔ C3 Param schema</td><td class="n">96</td></tr>
+<tr><td>C2 App shell ↔ C8 Worker</td><td class="n">95</td></tr>
+<tr><td>C4 Render contract ↔ C7 CPU kernels</td><td class="n">73</td></tr>
+<tr><td>C0 Catalogue ↔ C4 Render contract</td><td class="n">68</td></tr>
+<tr><td>C1 Graph doc ↔ C9 Parser</td><td class="n">65</td></tr>
+<tr><td>C1 Graph doc ↔ C4 Render contract</td><td class="n">60</td></tr>
+<tr><td>C2 App shell ↔ C3 Param schema</td><td class="n">58</td></tr>
+<tr><td>C2 App shell ↔ C4 Render contract</td><td class="n">53</td></tr>
+</table></div>
+</div>
+<div>
+<p class="note">Bridge items: heavily referenced items whose links spread over many clusters (high participation coefficient). These are the shared vocabulary, and changing them is expensive.</p>
+<div class="tablewrap"><table>
+<tr><th>Item</th><th class="n">Refs</th><th class="n">Clusters</th></tr>
+<tr><td><code>graph::Graph</code></td><td class="n">216</td><td class="n">7</td></tr>
+<tr><td><code>graph::Node</code></td><td class="n">201</td><td class="n">7</td></tr>
+<tr><td><code>engine::source::SourceImage</code></td><td class="n">92</td><td class="n">7</td></tr>
+<tr><td><code>engine::geom::Size</code></td><td class="n">193</td><td class="n">6</td></tr>
+<tr><td><code>ui::image_view::ImageView</code></td><td class="n">302</td><td class="n">6</td></tr>
+<tr><td><code>nodes::NodeKind</code></td><td class="n">45</td><td class="n">6</td></tr>
+<tr><td><code>nodes::Value</code></td><td class="n">168</td><td class="n">5</td></tr>
+<tr><td><code>ui::state::App</code></td><td class="n">371</td><td class="n">4</td></tr>
+<tr><td><code>worker::Msg</code> / <code>ui::pump</code></td><td class="n">91 / 122</td><td class="n">4</td></tr>
+<tr><td><code>engine::tile::CpuTile</code></td><td class="n">97</td><td class="n">4</td></tr>
+</table></div>
+</div>
+</div>
+
+<h2>Tests against clusters</h2>
+<p class="note">References from each integration test file into each cluster. Tests aren't part of the graph used for clustering.</p>
+<div class="tablewrap"><table>
+<tr><th>Cluster</th><th class="n">Test refs</th><th>Main test files</th><th>Note</th></tr>
+<tr><td>C1 Graph doc &amp; editor</td><td class="n">489</td><td>engine, project, split, ui_state</td><td>Every test builds graphs</td></tr>
+<tr><td>C2 App shell &amp; session</td><td class="n">229</td><td>project_e2e, ui_state</td><td>Driven through the session functions, as designed</td></tr>
+<tr><td>C4 ROI render contract</td><td class="n">164</td><td>kernel_profile, engine, resident, split</td><td></td></tr>
+<tr><td>C5 GPU backend</td><td class="n">153</td><td>kernel_profile, gpu_pool, large_images</td><td></td></tr>
+<tr><td>C8 Worker &amp; projects</td><td class="n">127</td><td>project, resident</td><td>All of it is <code>Project</code> and <code>SourceImage</code>. No test references <code>worker::</code> at all.</td></tr>
+<tr><td>C3 Param schema</td><td class="n">96</td><td>engine, project, split</td><td></td></tr>
+<tr><td>C7 CPU kernels</td><td class="n">82</td><td>engine, kernel_profile</td><td></td></tr>
+<tr><td>C0 Node catalogue</td><td class="n">51</td><td>engine, split</td><td>Low given it is the largest cluster</td></tr>
+<tr><td>C6 Codecs &amp; export</td><td class="n">35</td><td>export, large_images</td><td></td></tr>
+<tr><td>C10 GPU residency</td><td class="n">21</td><td>resident</td><td></td></tr>
+<tr><td>C9 Expression parser</td><td class="n">1</td><td>(14 inline unit tests in <code>expr.rs</code>)</td><td>Covered by in-file tests and by project loading</td></tr>
+<tr><td>C11 Blend-mode math</td><td class="n">0</td><td>—</td><td>Exercised only end-to-end, e.g. <code>every_blend_mode_renders</code></td></tr>
+</table></div>
+
+<h2>Method</h2>
+<p><b>Reference graph.</b> <code>rust-analyzer scip</code> produced a semantic index of the crate with the default <code>desktop</code> feature set, so references are compiler-resolved rather than text matches. Each top-level item is a node: functions, structs, enums, traits, constants, statics, and methods as <code>Type::method</code>. Fields, variants and std-trait impls (<code>Display</code>, <code>PartialEq</code>, …) are folded into their type. Each reference inside an item's body adds weight to an edge from that item to the target. <code>use</code> lines are ignored. Two kinds of structural edge are added: method → its type (weight 2) and trait-impl method → trait method declaration (weight 1). <code>#[cfg(test)]</code> code and <code>tests/</code> are left out of the graph.</p>
+<p><b>Clustering.</b> Louvain community detection on the undirected graph uses edge weight 1 + ln(references), which damps hot loops that repeat one call many times. A resolution sweep from 0.4 to 2.0 showed a flat modularity plateau (0.67) from 0.8 to 1.5. Resolution 1.0 was chosen, and the best of 30 seeds is reported. On average 96% of edges have their endpoints assigned the same way (together or apart) across seeds. Raw weights give a similar picture (Q = 0.70, 15 clusters).</p>
+<p><b>Regions.</b> At resolution 0.4 the algorithm finds 7 coarse groups. Five are clean merges of the clusters above: C0+C3, C1+C9, C4+C7, C5 alone and C11 alone. The other two are not. App shell and export (C2+C6) take the worker and project half of C8, and residency (C10) takes the <code>SourceImage</code> half of C8. C8 is the only cluster that splits at the coarse level, which marks it as the least settled boundary.</p>
+<p><b>Naming.</b> Cluster names and tags are mine. They come from each cluster's highest-degree members, its file composition and the module doc comments, and they are recorded in <code>data/cluster-names.json</code>.</p>
+<p><b>Caveats.</b> Web-only (<code>cfg(feature = "web")</code>) code paths aren't indexed. References inside <code>rsx!</code> are included as far as rust-analyzer resolves them. Dynamic dispatch through <code>&amp;dyn NodeKind</code> appears as references to the trait method, connected to each implementation by the trait-impl edges. Line counts are summed item spans, so they are approximate.</p>
+<p><b>Reproduce.</b> See <code>README.md</code> in this directory. The scripts are in <code>tools/</code> and the graph and partitions in <code>data/</code>.</p>
+</main>
+</body>
+</html>

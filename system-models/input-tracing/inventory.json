@@ -1,0 +1,2605 @@
+{
+ "root": ".",
+ "entries": [
+  {
+   "id": "src/engine/gpu.rs:94:env:DELOS_NO_GPU",
+   "kind": "env",
+   "file": "src/engine/gpu.rs",
+   "line": 94,
+   "end_line": 94,
+   "fn": "Gpu::new",
+   "detail": "env DELOS_NO_GPU",
+   "describe": "env DELOS_NO_GPU"
+  },
+  {
+   "id": "src/nodes/bgremove.rs:153:env:DELOS_REMBG_MODEL",
+   "kind": "env",
+   "file": "src/nodes/bgremove.rs",
+   "line": 153,
+   "end_line": 153,
+   "fn": "resolve_model",
+   "detail": "env DELOS_REMBG_MODEL",
+   "describe": "env DELOS_REMBG_MODEL"
+  },
+  {
+   "id": "src/nodes/bgremove.rs:156:env:HOME",
+   "kind": "env",
+   "file": "src/nodes/bgremove.rs",
+   "line": 156,
+   "end_line": 156,
+   "fn": "resolve_model",
+   "detail": "env HOME",
+   "describe": "env HOME"
+  },
+  {
+   "id": "src/nodes/bgremove.rs:156:env:USERPROFILE",
+   "kind": "env",
+   "file": "src/nodes/bgremove.rs",
+   "line": 156,
+   "end_line": 156,
+   "fn": "resolve_model",
+   "detail": "env USERPROFILE",
+   "describe": "env USERPROFILE"
+  },
+  {
+   "id": "src/project.rs:40:env:DELOS_PROJECTS_DIR",
+   "kind": "env",
+   "file": "src/project.rs",
+   "line": 40,
+   "end_line": 40,
+   "fn": "default_root",
+   "detail": "env DELOS_PROJECTS_DIR",
+   "describe": "env DELOS_PROJECTS_DIR"
+  },
+  {
+   "id": "src/project.rs:43:env:HOME",
+   "kind": "env",
+   "file": "src/project.rs",
+   "line": 43,
+   "end_line": 43,
+   "fn": "default_root",
+   "detail": "env HOME",
+   "describe": "env HOME"
+  },
+  {
+   "id": "src/project.rs:43:env:USERPROFILE",
+   "kind": "env",
+   "file": "src/project.rs",
+   "line": 43,
+   "end_line": 43,
+   "fn": "default_root",
+   "detail": "env USERPROFILE",
+   "describe": "env USERPROFILE"
+  },
+  {
+   "id": "src/project.rs:70:fs:fs::read_dir",
+   "kind": "fs",
+   "file": "src/project.rs",
+   "line": 70,
+   "end_line": 70,
+   "fn": "Project::create",
+   "detail": "fs::read_dir in Project::create",
+   "describe": "fs::read_dir in Project::create"
+  },
+  {
+   "id": "src/project.rs:106:fs:fs::read",
+   "kind": "fs",
+   "file": "src/project.rs",
+   "line": 106,
+   "end_line": 106,
+   "fn": "Project::add_input",
+   "detail": "fs::read in Project::add_input",
+   "describe": "fs::read in Project::add_input"
+  },
+  {
+   "id": "src/project.rs:156:fs:fs::read_dir",
+   "kind": "fs",
+   "file": "src/project.rs",
+   "line": 156,
+   "end_line": 156,
+   "fn": "Project::sync_inputs",
+   "detail": "fs::read_dir in Project::sync_inputs",
+   "describe": "fs::read_dir in Project::sync_inputs"
+  },
+  {
+   "id": "src/project.rs:216:fs:fs::read_to_string",
+   "kind": "fs",
+   "file": "src/project.rs",
+   "line": 216,
+   "end_line": 216,
+   "fn": "Project::verify",
+   "detail": "fs::read_to_string in Project::verify",
+   "describe": "fs::read_to_string in Project::verify"
+  },
+  {
+   "id": "src/project.rs:239:fs:fs::read",
+   "kind": "fs",
+   "file": "src/project.rs",
+   "line": 239,
+   "end_line": 239,
+   "fn": "Project::load",
+   "detail": "fs::read in Project::load",
+   "describe": "fs::read in Project::load"
+  },
+  {
+   "id": "src/project.rs:272:fs:File::open",
+   "kind": "fs",
+   "file": "src/project.rs",
+   "line": 272,
+   "end_line": 272,
+   "fn": "Project::share",
+   "detail": "File::open in Project::share",
+   "describe": "File::open in Project::share"
+  },
+  {
+   "id": "src/project.rs:306:fs:File::open",
+   "kind": "fs",
+   "file": "src/project.rs",
+   "line": 306,
+   "end_line": 306,
+   "fn": "unpack",
+   "detail": "File::open in unpack",
+   "describe": "File::open in unpack"
+  },
+  {
+   "id": "src/project.rs:307:fs:ZipArchive::new",
+   "kind": "fs",
+   "file": "src/project.rs",
+   "line": 307,
+   "end_line": 307,
+   "fn": "unpack",
+   "detail": "ZipArchive::new in unpack",
+   "describe": "ZipArchive::new in unpack"
+  },
+  {
+   "id": "src/project.rs:367:fs:fs::read_dir",
+   "kind": "fs",
+   "file": "src/project.rs",
+   "line": 367,
+   "end_line": 367,
+   "fn": "collect_files",
+   "detail": "fs::read_dir in collect_files",
+   "describe": "fs::read_dir in collect_files"
+  },
+  {
+   "id": "src/ui/dialogs.rs:42:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 42,
+   "end_line": 46,
+   "fn": "ConflictDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn primary\"> \u201cUse {fmt_size(sa)} (resize {nb})\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn primary",
+    "label": "Use {fmt_size(sa)} (resize {nb})"
+   },
+   "calls": [
+    "App::edit",
+    "Graph::insert_resize"
+   ],
+   "writes": [
+    "App.conflict"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:51:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 51,
+   "end_line": 55,
+   "fn": "ConflictDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn primary\"> \u201cUse {fmt_size(sb)} (resize {na})\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn primary",
+    "label": "Use {fmt_size(sb)} (resize {na})"
+   },
+   "calls": [
+    "App::edit",
+    "Graph::insert_resize"
+   ],
+   "writes": [
+    "App.conflict"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:58:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 58,
+   "end_line": 58,
+   "fn": "ConflictDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn\"> \u201cKeep both sizes (align top-left)\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn",
+    "label": "Keep both sizes (align top-left)"
+   },
+   "calls": [
+    "App::ignore_conflict"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:114:onmousedown",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 114,
+   "end_line": 114,
+   "fn": "ExportDialog",
+   "detail": "onmousedown",
+   "describe": "onmousedown on <div class=\"modal-backdrop\">",
+   "element": {
+    "name": "div",
+    "class": "modal-backdrop"
+   },
+   "calls": [
+    "App::export_pressed"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:115:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 115,
+   "end_line": 115,
+   "fn": "ExportDialog",
+   "detail": "onclick",
+   "describe": "onclick on <div class=\"modal-backdrop\">",
+   "element": {
+    "name": "div",
+    "class": "modal-backdrop"
+   },
+   "calls": [
+    "App::export_backdrop_clicked"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:117:onmousedown",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 117,
+   "end_line": 120,
+   "fn": "ExportDialog",
+   "detail": "onmousedown",
+   "describe": "onmousedown on <div class=\"modal\">",
+   "element": {
+    "name": "div",
+    "class": "modal"
+   },
+   "calls": [
+    "App::export_pressed"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:121:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 121,
+   "end_line": 121,
+   "fn": "ExportDialog",
+   "detail": "onclick",
+   "describe": "onclick on <div class=\"modal\">",
+   "element": {
+    "name": "div",
+    "class": "modal"
+   },
+   "calls": [],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:125:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 125,
+   "end_line": 125,
+   "fn": "ExportDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"modal-close\"> \u201c\u00d7\u201d",
+   "element": {
+    "name": "button",
+    "class": "modal-close",
+    "title": "Close (Esc)",
+    "label": "\u00d7"
+   },
+   "calls": [],
+   "writes": [
+    "App.export"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:133:onchange",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 133,
+   "end_line": 142,
+   "fn": "ExportDialog",
+   "detail": "onchange",
+   "describe": "onchange on <select>",
+   "element": {
+    "name": "select"
+   },
+   "calls": [
+    "codec_by_name"
+   ],
+   "writes": [
+    "App.export"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:154:onchange",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 154,
+   "end_line": 154,
+   "fn": "ExportDialog",
+   "detail": "onchange",
+   "describe": "onchange on <input type=\"text\">",
+   "element": {
+    "name": "input",
+    "type": "text",
+    "value": "{st.name}"
+   },
+   "calls": [],
+   "writes": [
+    "App.export"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:166:oninput",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 166,
+   "end_line": 166,
+   "fn": "ExportDialog",
+   "detail": "oninput",
+   "describe": "oninput on <input type=\"range\">",
+   "element": {
+    "name": "input",
+    "type": "range",
+    "value": "{st.quality}"
+   },
+   "calls": [],
+   "writes": [
+    "App.export"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:184:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 184,
+   "end_line": 189,
+   "fn": "ExportDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn danger\"> \u201cCancel export\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn danger",
+    "label": "Cancel export"
+   },
+   "calls": [
+    "Worker::cancel_export"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:193:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 193,
+   "end_line": 193,
+   "fn": "ExportDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn primary\"> \u201cExport\u2026\u201d (via `start`)",
+   "element": {
+    "name": "button",
+    "class": "btn primary",
+    "label": "Export\u2026"
+   },
+   "via": "start",
+   "calls": [
+    "codec_by_name",
+    "choose_save_target",
+    "Worker::export"
+   ],
+   "writes": [
+    "App.export"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:194:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 194,
+   "end_line": 194,
+   "fn": "ExportDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn\"> \u201cClose\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn",
+    "label": "Close"
+   },
+   "calls": [],
+   "writes": [
+    "App.export"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:226:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 226,
+   "end_line": 226,
+   "fn": "ProjectDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"modal-close\"> \u201c\u00d7\u201d",
+   "element": {
+    "name": "button",
+    "class": "modal-close",
+    "title": "Close (Esc)",
+    "label": "\u00d7"
+   },
+   "calls": [
+    "cancel_prompt"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:250:oninput",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 250,
+   "end_line": 250,
+   "fn": "ProjectDialog",
+   "detail": "oninput",
+   "describe": "oninput on <input type=\"text\">",
+   "element": {
+    "name": "input",
+    "type": "text",
+    "value": "{prompt.name}"
+   },
+   "calls": [
+    "set_prompt_name"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:261:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 261,
+   "end_line": 271,
+   "fn": "ProjectDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn small\"> \u201cChange\u2026\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn small",
+    "label": "Change\u2026"
+   },
+   "calls": [
+    "pick_folder"
+   ],
+   "writes": [
+    "App.project_prompt"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:286:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 286,
+   "end_line": 286,
+   "fn": "ProjectDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn\"> \u201cQuick mode\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn",
+    "title": "Edit without creating a project",
+    "label": "Quick mode"
+   },
+   "calls": [
+    "choose_quick"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:290:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 290,
+   "end_line": 290,
+   "fn": "ProjectDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn\"> \u201cCancel\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn",
+    "label": "Cancel"
+   },
+   "calls": [
+    "cancel_prompt"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/dialogs.rs:295:onclick",
+   "kind": "handler",
+   "file": "src/ui/dialogs.rs",
+   "line": 295,
+   "end_line": 300,
+   "fn": "ProjectDialog",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn primary\">",
+   "element": {
+    "name": "button",
+    "class": "btn primary"
+   },
+   "calls": [
+    "create_project"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:251:onmounted",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 251,
+   "end_line": 254,
+   "fn": "GraphView",
+   "detail": "onmounted",
+   "describe": "onmounted on <div class=\"graph wiring\">",
+   "element": {
+    "name": "div",
+    "class": "graph wiring"
+   },
+   "calls": [],
+   "writes": [
+    "GraphView.origin",
+    "GraphView.mounted"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:255:onresize",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 255,
+   "end_line": 255,
+   "fn": "GraphView",
+   "detail": "onresize",
+   "describe": "onresize on <div class=\"graph wiring\">",
+   "element": {
+    "name": "div",
+    "class": "graph wiring"
+   },
+   "calls": [],
+   "writes": [
+    "GraphView.origin"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:256:onwheel",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 256,
+   "end_line": 265,
+   "fn": "GraphView",
+   "detail": "onwheel",
+   "describe": "onwheel on <div class=\"graph wiring\">",
+   "element": {
+    "name": "div",
+    "class": "graph wiring"
+   },
+   "calls": [],
+   "writes": [
+    "GraphView.pan",
+    "GraphView.zoom"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:266:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 266,
+   "end_line": 271,
+   "fn": "GraphView",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <div class=\"graph wiring\">",
+   "element": {
+    "name": "div",
+    "class": "graph wiring"
+   },
+   "calls": [
+    "App::select"
+   ],
+   "writes": [
+    "GraphView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:272:onpointermove",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 272,
+   "end_line": 292,
+   "fn": "GraphView",
+   "detail": "onpointermove",
+   "describe": "onpointermove on <div class=\"graph wiring\">",
+   "element": {
+    "name": "div",
+    "class": "graph wiring"
+   },
+   "calls": [
+    "Graph::node_mut"
+   ],
+   "writes": [
+    "App.graph",
+    "GraphView.pan",
+    "GraphView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:293:onpointerup",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 293,
+   "end_line": 293,
+   "fn": "GraphView",
+   "detail": "onpointerup",
+   "describe": "onpointerup on <div class=\"graph wiring\">",
+   "element": {
+    "name": "div",
+    "class": "graph wiring"
+   },
+   "calls": [],
+   "writes": [
+    "GraphView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:294:onpointerleave",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 294,
+   "end_line": 294,
+   "fn": "GraphView",
+   "detail": "onpointerleave",
+   "describe": "onpointerleave on <div class=\"graph wiring\">",
+   "element": {
+    "name": "div",
+    "class": "graph wiring"
+   },
+   "calls": [],
+   "writes": [
+    "GraphView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:306:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 306,
+   "end_line": 310,
+   "fn": "GraphView",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <path class=\"edge-hit\">",
+   "element": {
+    "name": "path",
+    "class": "edge-hit"
+   },
+   "calls": [
+    "encode_edge"
+   ],
+   "writes": [
+    "App.selected",
+    "App.selected_edge"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:337:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 337,
+   "end_line": 345,
+   "fn": "GraphView",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <div class=\"{cls}\">",
+   "element": {
+    "name": "div",
+    "class": "{cls}"
+   },
+   "calls": [
+    "App::select",
+    "App::edit_coalesced"
+   ],
+   "writes": [
+    "GraphView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:346:ondoubleclick",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 346,
+   "end_line": 356,
+   "fn": "GraphView",
+   "detail": "ondoubleclick",
+   "describe": "ondoubleclick on <div class=\"{cls}\">",
+   "element": {
+    "name": "div",
+    "class": "{cls}"
+   },
+   "calls": [
+    "App::select"
+   ],
+   "writes": [
+    "App.pinned"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:375:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 375,
+   "end_line": 380,
+   "fn": "GraphView",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <div class=\"port out viewing-port\"> \u201c\u201c{name}\u201d \u00b7 drag to an input to connect \u00b7 double-click to view\u201d",
+   "element": {
+    "name": "div",
+    "class": "port out viewing-port",
+    "title": "\u201c{name}\u201d \u00b7 drag to an input to connect \u00b7 double-click to view"
+   },
+   "calls": [],
+   "writes": [
+    "GraphView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:381:ondoubleclick",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 381,
+   "end_line": 385,
+   "fn": "GraphView",
+   "detail": "ondoubleclick",
+   "describe": "ondoubleclick on <div class=\"port out viewing-port\"> \u201c\u201c{name}\u201d \u00b7 drag to an input to connect \u00b7 double-click to view\u201d",
+   "element": {
+    "name": "div",
+    "class": "port out viewing-port",
+    "title": "\u201c{name}\u201d \u00b7 drag to an input to connect \u00b7 double-click to view"
+   },
+   "calls": [
+    "App::select"
+   ],
+   "writes": [
+    "App.pinned"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:404:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 404,
+   "end_line": 413,
+   "fn": "GraphView",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <div class=\"{pcls}\">",
+   "element": {
+    "name": "div",
+    "class": "{pcls}"
+   },
+   "calls": [
+    "disconnect_ref"
+   ],
+   "writes": [
+    "GraphView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:414:onpointerup",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 414,
+   "end_line": 420,
+   "fn": "GraphView",
+   "detail": "onpointerup",
+   "describe": "onpointerup on <div class=\"{pcls}\">",
+   "element": {
+    "name": "div",
+    "class": "{pcls}"
+   },
+   "calls": [
+    "connect_port"
+   ],
+   "writes": [
+    "GraphView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:433:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 433,
+   "end_line": 433,
+   "fn": "GraphView",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <div class=\"graph-tools\">",
+   "element": {
+    "name": "div",
+    "class": "graph-tools"
+   },
+   "calls": [],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:436:onclick",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 436,
+   "end_line": 449,
+   "fn": "GraphView",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn small\"> \u201cHome\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn small",
+    "label": "Home"
+   },
+   "calls": [],
+   "writes": [
+    "GraphView.pan",
+    "GraphView.zoom"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:452:onclick",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 452,
+   "end_line": 452,
+   "fn": "GraphView",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn small\"> \u201c+\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn small",
+    "label": "+"
+   },
+   "calls": [],
+   "writes": [
+    "GraphView.zoom"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/graph_view.rs:453:onclick",
+   "kind": "handler",
+   "file": "src/ui/graph_view.rs",
+   "line": 453,
+   "end_line": 453,
+   "fn": "GraphView",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn small\"> \u201c\u2212\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn small",
+    "label": "\u2212"
+   },
+   "calls": [],
+   "writes": [
+    "GraphView.zoom"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:42:use_memo",
+   "kind": "effect",
+   "file": "src/ui/image_view.rs",
+   "line": 42,
+   "end_line": 42,
+   "fn": "ImageView",
+   "detail": "use_memo in ImageView",
+   "describe": "use_memo in ImageView \u2192 `disp`",
+   "calls": [
+    "App::displayed"
+   ],
+   "writes": [],
+   "sends": [],
+   "subscribes": [
+    "App.follow_selection",
+    "App.graph",
+    "App.pinned",
+    "App.selected"
+   ]
+  },
+  {
+   "id": "src/ui/image_view.rs:51:use_effect",
+   "kind": "effect",
+   "file": "src/ui/image_view.rs",
+   "line": 51,
+   "end_line": 67,
+   "fn": "ImageView",
+   "detail": "use_effect in ImageView",
+   "describe": "use_effect in ImageView",
+   "calls": [],
+   "writes": [
+    "App.view"
+   ],
+   "sends": [],
+   "subscribes": [
+    "App.follow_selection",
+    "App.graph",
+    "App.pinned",
+    "App.selected",
+    "App.view",
+    "App.viewport",
+    "ImageView.disp",
+    "ImageView.drag"
+   ]
+  },
+  {
+   "id": "src/ui/image_view.rs:70:use_effect",
+   "kind": "effect",
+   "file": "src/ui/image_view.rs",
+   "line": 70,
+   "end_line": 76,
+   "fn": "ImageView",
+   "detail": "use_effect in ImageView",
+   "describe": "use_effect in ImageView",
+   "calls": [
+    "App::fit_canvas_to_window"
+   ],
+   "writes": [],
+   "sends": [],
+   "subscribes": [
+    "App.follow_selection",
+    "App.graph",
+    "App.pinned",
+    "App.selected",
+    "App.viewport",
+    "ImageView.disp"
+   ]
+  },
+  {
+   "id": "src/ui/image_view.rs:83:use_effect",
+   "kind": "effect",
+   "file": "src/ui/image_view.rs",
+   "line": 83,
+   "end_line": 125,
+   "fn": "ImageView",
+   "detail": "use_effect in ImageView",
+   "describe": "use_effect in ImageView",
+   "calls": [
+    "Rect::new",
+    "Rect::intersect",
+    "Request::new",
+    "Graph::link_hash",
+    "Worker::preview"
+   ],
+   "writes": [
+    "App.seq",
+    "App.busy"
+   ],
+   "sends": [],
+   "subscribes": [
+    "App.backend",
+    "App.follow_selection",
+    "App.graph",
+    "App.pinned",
+    "App.selected",
+    "App.view",
+    "App.viewport",
+    "ImageView.disp",
+    "ImageView.dpr"
+   ]
+  },
+  {
+   "id": "src/ui/image_view.rs:197:onmounted",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 197,
+   "end_line": 200,
+   "fn": "ImageView",
+   "detail": "onmounted",
+   "describe": "onmounted on <div class=\"viewport\">",
+   "element": {
+    "name": "div",
+    "class": "viewport"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.origin",
+    "ImageView.mounted"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:201:onresize",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 201,
+   "end_line": 206,
+   "fn": "ImageView",
+   "detail": "onresize",
+   "describe": "onresize on <div class=\"viewport\">",
+   "element": {
+    "name": "div",
+    "class": "viewport"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.origin",
+    "App.viewport"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:207:onwheel",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 207,
+   "end_line": 221,
+   "fn": "ImageView",
+   "detail": "onwheel",
+   "describe": "onwheel on <div class=\"viewport\">",
+   "element": {
+    "name": "div",
+    "class": "viewport"
+   },
+   "calls": [],
+   "writes": [
+    "App.view"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:222:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 222,
+   "end_line": 226,
+   "fn": "ImageView",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <div class=\"viewport\">",
+   "element": {
+    "name": "div",
+    "class": "viewport"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:227:onpointermove",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 227,
+   "end_line": 288,
+   "fn": "ImageView",
+   "detail": "onpointermove",
+   "describe": "onpointermove on <div class=\"viewport\">",
+   "element": {
+    "name": "div",
+    "class": "viewport"
+   },
+   "calls": [
+    "App::set_param",
+    "App::edit_coalesced",
+    "Graph::set_param"
+   ],
+   "writes": [
+    "App.view",
+    "App.canvas_user_set",
+    "ImageView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:289:onpointerup",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 289,
+   "end_line": 289,
+   "fn": "ImageView",
+   "detail": "onpointerup",
+   "describe": "onpointerup on <div class=\"viewport\">",
+   "element": {
+    "name": "div",
+    "class": "viewport"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:290:onpointerleave",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 290,
+   "end_line": 290,
+   "fn": "ImageView",
+   "detail": "onpointerleave",
+   "describe": "onpointerleave on <div class=\"viewport\">",
+   "element": {
+    "name": "div",
+    "class": "viewport"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:291:ondoubleclick",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 291,
+   "end_line": 291,
+   "fn": "ImageView",
+   "detail": "ondoubleclick",
+   "describe": "ondoubleclick on <div class=\"viewport\">",
+   "element": {
+    "name": "div",
+    "class": "viewport"
+   },
+   "calls": [],
+   "writes": [
+    "App.view"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:313:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 313,
+   "end_line": 316,
+   "fn": "ImageView",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <rect class=\"handle canvas-handle\">",
+   "element": {
+    "name": "rect",
+    "class": "handle canvas-handle"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.drag"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:341:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 341,
+   "end_line": 341,
+   "fn": "ImageView",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <div class=\"statusbar\">",
+   "element": {
+    "name": "div",
+    "class": "statusbar"
+   },
+   "calls": [],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:346:onclick",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 346,
+   "end_line": 346,
+   "fn": "ImageView",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn small\"> \u201cFit\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn small",
+    "label": "Fit"
+   },
+   "calls": [],
+   "writes": [
+    "App.view"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:349:onclick",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 349,
+   "end_line": 353,
+   "fn": "ImageView",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn small\"> \u201c1:1\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn small",
+    "label": "1:1"
+   },
+   "calls": [],
+   "writes": [
+    "App.view"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:356:onclick",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 356,
+   "end_line": 356,
+   "fn": "ImageView",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn small\"> \u201c+\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn small",
+    "label": "+"
+   },
+   "calls": [
+    "zoom_by"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:357:onclick",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 357,
+   "end_line": 357,
+   "fn": "ImageView",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn small\"> \u201c\u2212\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn small",
+    "label": "\u2212"
+   },
+   "calls": [
+    "zoom_by"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:402:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 402,
+   "end_line": 406,
+   "fn": "render_overlay",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <line class=\"axis-hit h\">",
+   "element": {
+    "name": "line",
+    "class": "axis-hit h"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.drag",
+    "ImageView.frac_map"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:436:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 436,
+   "end_line": 440,
+   "fn": "render_overlay",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <line class=\"axis-hit h\">",
+   "element": {
+    "name": "line",
+    "class": "axis-hit h"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.drag",
+    "ImageView.frac_map"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:457:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 457,
+   "end_line": 461,
+   "fn": "render_overlay",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <circle class=\"handle point\">",
+   "element": {
+    "name": "circle",
+    "class": "handle point"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.drag",
+    "ImageView.frac_map"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:484:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 484,
+   "end_line": 488,
+   "fn": "render_overlay",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <rect class=\"clip-rect\">",
+   "element": {
+    "name": "rect",
+    "class": "clip-rect"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.drag",
+    "ImageView.frac_map"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/image_view.rs:498:onpointerdown",
+   "kind": "handler",
+   "file": "src/ui/image_view.rs",
+   "line": 498,
+   "end_line": 502,
+   "fn": "render_overlay",
+   "detail": "onpointerdown",
+   "describe": "onpointerdown on <rect class=\"handle\">",
+   "element": {
+    "name": "rect",
+    "class": "handle"
+   },
+   "calls": [],
+   "writes": [
+    "ImageView.drag",
+    "ImageView.frac_map"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:19:onkeydown",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 19,
+   "end_line": 19,
+   "fn": "Inspector",
+   "detail": "onkeydown",
+   "describe": "onkeydown on <div class=\"inspector\">",
+   "element": {
+    "name": "div",
+    "class": "inspector"
+   },
+   "calls": [],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:108:onchange",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 108,
+   "end_line": 115,
+   "fn": "NodePanel",
+   "detail": "onchange",
+   "describe": "onchange on <input class=\"title-input\">",
+   "element": {
+    "name": "input",
+    "class": "title-input",
+    "value": "{title}"
+   },
+   "calls": [
+    "App::edit",
+    "Graph::node_mut"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:146:onclick",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 146,
+   "end_line": 148,
+   "fn": "NodePanel",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn active\"> \u201c{label}\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn active",
+    "title": "Temporarily relocate the output to this node",
+    "label": "{label}"
+   },
+   "calls": [
+    "Link::new"
+   ],
+   "writes": [
+    "App.pinned"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:154:onclick",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 154,
+   "end_line": 154,
+   "fn": "NodePanel",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn\"> \u201c{export_label}\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn",
+    "label": "{export_label}"
+   },
+   "calls": [
+    "App::open_export"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:155:onclick",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 155,
+   "end_line": 155,
+   "fn": "NodePanel",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn danger\"> \u201cDelete\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn danger",
+    "label": "Delete"
+   },
+   "calls": [
+    "App::delete_node"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:167:onchange",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 167,
+   "end_line": 174,
+   "fn": "NodePanel",
+   "detail": "onchange",
+   "describe": "onchange on <select>",
+   "element": {
+    "name": "select"
+   },
+   "calls": [
+    "Link::new",
+    "connect_port",
+    "App::edit",
+    "Graph::disconnect"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:204:onclick",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 204,
+   "end_line": 204,
+   "fn": "NodePanel",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn\"> \u201cCanvas = window size\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn",
+    "title": "Use the image view's size as the canvas for size-less content",
+    "label": "Canvas = window size"
+   },
+   "calls": [
+    "App::fit_canvas_to_window"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:269:oninput",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 269,
+   "end_line": 269,
+   "fn": "ParamField",
+   "detail": "oninput",
+   "describe": "oninput on <input type=\"range\">",
+   "element": {
+    "name": "input",
+    "type": "range",
+    "value": "{v}"
+   },
+   "calls": [
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:276:onchange",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 276,
+   "end_line": 276,
+   "fn": "ParamField",
+   "detail": "onchange",
+   "describe": "onchange on <input type=\"number\" class=\"num\">",
+   "element": {
+    "name": "input",
+    "type": "number",
+    "class": "num",
+    "value": "{v:.3}"
+   },
+   "calls": [
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:300:oninput",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 300,
+   "end_line": 300,
+   "fn": "ParamField",
+   "detail": "oninput",
+   "describe": "oninput on <input type=\"range\">",
+   "element": {
+    "name": "input",
+    "type": "range",
+    "value": "{v}"
+   },
+   "calls": [
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:307:onchange",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 307,
+   "end_line": 307,
+   "fn": "ParamField",
+   "detail": "onchange",
+   "describe": "onchange on <input type=\"number\" class=\"num\"> \u201cpixels\u201d",
+   "element": {
+    "name": "input",
+    "type": "number",
+    "class": "num",
+    "title": "pixels",
+    "value": "{px}"
+   },
+   "calls": [
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:328:oninput",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 328,
+   "end_line": 328,
+   "fn": "ParamField",
+   "detail": "oninput",
+   "describe": "oninput on <input type=\"range\">",
+   "element": {
+    "name": "input",
+    "type": "range",
+    "value": "{v}"
+   },
+   "calls": [
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:337:onchange",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 337,
+   "end_line": 337,
+   "fn": "ParamField",
+   "detail": "onchange",
+   "describe": "onchange on <input type=\"number\" class=\"num\">",
+   "element": {
+    "name": "input",
+    "type": "number",
+    "class": "num",
+    "value": "{v}"
+   },
+   "calls": [
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:347:onchange",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 347,
+   "end_line": 347,
+   "fn": "ParamField",
+   "detail": "onchange",
+   "describe": "onchange on <input type=\"checkbox\">",
+   "element": {
+    "name": "input",
+    "type": "checkbox"
+   },
+   "calls": [
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:357:onchange",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 357,
+   "end_line": 357,
+   "fn": "ParamField",
+   "detail": "onchange",
+   "describe": "onchange on <select>",
+   "element": {
+    "name": "select"
+   },
+   "calls": [
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:375:oninput",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 375,
+   "end_line": 375,
+   "fn": "ParamField",
+   "detail": "oninput",
+   "describe": "oninput on <input type=\"color\">",
+   "element": {
+    "name": "input",
+    "type": "color",
+    "value": "{h}"
+   },
+   "calls": [
+    "parse_hex",
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:384:oninput",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 384,
+   "end_line": 384,
+   "fn": "ParamField",
+   "detail": "oninput",
+   "describe": "oninput on <input type=\"range\"> \u201copacity\u201d",
+   "element": {
+    "name": "input",
+    "type": "range",
+    "title": "opacity",
+    "value": "{c[3]}"
+   },
+   "calls": [
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:395:onchange",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 395,
+   "end_line": 395,
+   "fn": "ParamField",
+   "detail": "onchange",
+   "describe": "onchange on <input type=\"text\">",
+   "element": {
+    "name": "input",
+    "type": "text",
+    "value": "{v}"
+   },
+   "calls": [
+    "App::set_param"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:448:onclick",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 448,
+   "end_line": 461,
+   "fn": "LayerStack",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"icon-btn\"> \u201cDisable layer\u201d",
+   "element": {
+    "name": "button",
+    "class": "icon-btn",
+    "title": "Disable layer"
+   },
+   "calls": [
+    "App::edit",
+    "Graph::stack_chain",
+    "Graph::set_stack_layers",
+    "Graph::node",
+    "Graph::remove_node",
+    "Graph::add_node",
+    "Graph::connect"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:466:onclick",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 466,
+   "end_line": 466,
+   "fn": "LayerStack",
+   "detail": "onclick",
+   "describe": "onclick on <span class=\"layer-name\"> \u201c{name}\u201d",
+   "element": {
+    "name": "span",
+    "class": "layer-name",
+    "label": "{name}"
+   },
+   "calls": [
+    "App::select"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:473:onclick",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 473,
+   "end_line": 473,
+   "fn": "LayerStack",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"icon-btn\"> \u201c\u25b2\u201d",
+   "element": {
+    "name": "button",
+    "class": "icon-btn",
+    "title": "Move towards the front",
+    "label": "\u25b2"
+   },
+   "calls": [
+    "App::edit",
+    "Graph::stack_chain",
+    "Graph::set_stack_layers"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:480:onclick",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 480,
+   "end_line": 480,
+   "fn": "LayerStack",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"icon-btn\"> \u201c\u25bc\u201d",
+   "element": {
+    "name": "button",
+    "class": "icon-btn",
+    "title": "Move towards the back",
+    "label": "\u25bc"
+   },
+   "calls": [
+    "App::edit",
+    "Graph::stack_chain",
+    "Graph::set_stack_layers"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:486:onclick",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 486,
+   "end_line": 486,
+   "fn": "LayerStack",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"icon-btn\"> \u201c\u2715\u201d",
+   "element": {
+    "name": "button",
+    "class": "icon-btn",
+    "title": "Remove from stack",
+    "label": "\u2715"
+   },
+   "calls": [
+    "App::edit",
+    "Graph::stack_chain",
+    "Graph::set_stack_layers"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:499:onchange",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 499,
+   "end_line": 502,
+   "fn": "LayerStack",
+   "detail": "onchange",
+   "describe": "onchange on <input type=\"file\">",
+   "element": {
+    "name": "input",
+    "type": "file",
+    "accept": "{accept}"
+   },
+   "calls": [
+    "import"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:508:onchange",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 508,
+   "end_line": 517,
+   "fn": "LayerStack",
+   "detail": "onchange",
+   "describe": "onchange on <select class=\"small\">",
+   "element": {
+    "name": "select",
+    "class": "small"
+   },
+   "calls": [
+    "kind",
+    "App::edit",
+    "Graph::stack_chain",
+    "Graph::set_stack_layers",
+    "Graph::node",
+    "Graph::add_node"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/inspector.rs:523:onclick",
+   "kind": "handler",
+   "file": "src/ui/inspector.rs",
+   "line": 523,
+   "end_line": 523,
+   "fn": "LayerStack",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn small\"> \u201c+ Empty slot\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn small",
+    "label": "+ Empty slot"
+   },
+   "calls": [
+    "App::edit",
+    "Graph::stack_chain",
+    "Graph::set_stack_layers"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:63:use_effect",
+   "kind": "effect",
+   "file": "src/ui/mod.rs",
+   "line": 63,
+   "end_line": 70,
+   "fn": "Root",
+   "detail": "use_effect in Root",
+   "describe": "use_effect in Root",
+   "calls": [],
+   "writes": [],
+   "sends": [],
+   "subscribes": [
+    "App.session"
+   ]
+  },
+  {
+   "id": "src/ui/mod.rs:84:onkeydown",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 84,
+   "end_line": 84,
+   "fn": "Root",
+   "detail": "onkeydown",
+   "describe": "onkeydown on <div class=\"app\">",
+   "element": {
+    "name": "div",
+    "class": "app"
+   },
+   "calls": [
+    "on_key"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:85:ondragover",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 85,
+   "end_line": 85,
+   "fn": "Root",
+   "detail": "ondragover",
+   "describe": "ondragover on <div class=\"app\">",
+   "element": {
+    "name": "div",
+    "class": "app"
+   },
+   "calls": [],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:86:ondrop",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 86,
+   "end_line": 105,
+   "fn": "Root",
+   "detail": "ondrop",
+   "describe": "ondrop on <div class=\"app\">",
+   "element": {
+    "name": "div",
+    "class": "app"
+   },
+   "calls": [
+    "is_project_path",
+    "has_unsaved_work",
+    "confirm",
+    "open_project",
+    "import"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:337:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 337,
+   "end_line": 337,
+   "fn": "Toolbar",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"{cls}\"> \u201c{label}\u201d",
+   "element": {
+    "name": "button",
+    "class": "{cls}",
+    "label": "{label}"
+   },
+   "calls": [],
+   "writes": [
+    "App.layout"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:351:onchange",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 351,
+   "end_line": 357,
+   "fn": "Toolbar",
+   "detail": "onchange",
+   "describe": "onchange on <input type=\"file\">",
+   "element": {
+    "name": "input",
+    "type": "file",
+    "accept": "{accept}"
+   },
+   "calls": [
+    "import"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:362:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 362,
+   "end_line": 362,
+   "fn": "Toolbar",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn\"> \u201cAdd node \u25be\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn",
+    "label": "Add node \u25be"
+   },
+   "calls": [],
+   "writes": [
+    "Toolbar.menu_open"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:364:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 364,
+   "end_line": 364,
+   "fn": "Toolbar",
+   "detail": "onclick",
+   "describe": "onclick on <div class=\"menu-backdrop\">",
+   "element": {
+    "name": "div",
+    "class": "menu-backdrop"
+   },
+   "calls": [],
+   "writes": [
+    "Toolbar.menu_open"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:372:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 372,
+   "end_line": 375,
+   "fn": "Toolbar",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"menu-item\"> \u201c{k.name()}\u201d",
+   "element": {
+    "name": "button",
+    "class": "menu-item",
+    "title": "{k.description()}",
+    "label": "{k.name()}"
+   },
+   "calls": [
+    "App::add_node"
+   ],
+   "writes": [
+    "Toolbar.menu_open"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:391:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 391,
+   "end_line": 391,
+   "fn": "Toolbar",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn\"> \u201cExport\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn",
+    "title": "Export the image currently shown (\u2318E)",
+    "label": "Export"
+   },
+   "calls": [
+    "App::open_export"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:395:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 395,
+   "end_line": 395,
+   "fn": "Toolbar",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn icon\"> \u201c\u21b6\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn icon",
+    "title": "Undo (\u2318Z)",
+    "label": "\u21b6"
+   },
+   "calls": [
+    "App::undo"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:396:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 396,
+   "end_line": 396,
+   "fn": "Toolbar",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn icon\"> \u201c\u21b7\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn icon",
+    "title": "Redo (\u21e7\u2318Z)",
+    "label": "\u21b7"
+   },
+   "calls": [
+    "App::redo"
+   ],
+   "writes": [],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:414:onchange",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 414,
+   "end_line": 414,
+   "fn": "Toolbar",
+   "detail": "onchange",
+   "describe": "onchange on <input type=\"checkbox\">",
+   "element": {
+    "name": "input",
+    "type": "checkbox"
+   },
+   "calls": [],
+   "writes": [
+    "App.follow_selection"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:422:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 422,
+   "end_line": 422,
+   "fn": "Toolbar",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"link\"> \u201cReset\u201d",
+   "element": {
+    "name": "button",
+    "class": "link",
+    "label": "Reset"
+   },
+   "calls": [],
+   "writes": [
+    "App.pinned"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:432:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 432,
+   "end_line": 441,
+   "fn": "Toolbar",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"badge\"> \u201c{backend}\u201d",
+   "element": {
+    "name": "button",
+    "class": "badge",
+    "title": "Click to switch between GPU and CPU rendering",
+    "label": "{backend}"
+   },
+   "calls": [],
+   "writes": [
+    "App.backend",
+    "App.graph"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:456:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 456,
+   "end_line": 456,
+   "fn": "Toast",
+   "detail": "onclick",
+   "describe": "onclick on <div class=\"{cls}\"> \u201c{msg}\u201d",
+   "element": {
+    "name": "div",
+    "class": "{cls}",
+    "label": "{msg}"
+   },
+   "calls": [],
+   "writes": [
+    "App.toast"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:521:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 521,
+   "end_line": 521,
+   "fn": "ProjectMenu",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"btn\"> \u201cProject \u25be\u201d",
+   "element": {
+    "name": "button",
+    "class": "btn",
+    "label": "Project \u25be"
+   },
+   "calls": [],
+   "writes": [
+    "ProjectMenu.open"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:523:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 523,
+   "end_line": 523,
+   "fn": "ProjectMenu",
+   "detail": "onclick",
+   "describe": "onclick on <div class=\"menu-backdrop\">",
+   "element": {
+    "name": "div",
+    "class": "menu-backdrop"
+   },
+   "calls": [],
+   "writes": [
+    "ProjectMenu.open"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:528:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 528,
+   "end_line": 531,
+   "fn": "ProjectMenu",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"menu-item\"> \u201cSave the current work as a project folder (images are copied into it)\u201d",
+   "element": {
+    "name": "button",
+    "class": "menu-item",
+    "title": "Save the current work as a project folder (images are copied into it)"
+   },
+   "calls": [
+    "prompt_new_project"
+   ],
+   "writes": [
+    "ProjectMenu.open"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:535:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 535,
+   "end_line": 535,
+   "fn": "ProjectMenu",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"menu-item\"> \u201cImport project\u2026\u201d (via `import_file`)",
+   "element": {
+    "name": "button",
+    "class": "menu-item",
+    "title": "Open a .delosproject file or a project.delos file",
+    "label": "Import project\u2026"
+   },
+   "via": "import_file",
+   "calls": [
+    "has_unsaved_work",
+    "confirm",
+    "open_project",
+    "pick_project_file"
+   ],
+   "writes": [
+    "ProjectMenu.open"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:536:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 536,
+   "end_line": 536,
+   "fn": "ProjectMenu",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"menu-item\"> \u201cOpen project folder\u2026\u201d (via `import_folder`)",
+   "element": {
+    "name": "button",
+    "class": "menu-item",
+    "title": "Open a project folder in place",
+    "label": "Open project folder\u2026"
+   },
+   "via": "import_folder",
+   "calls": [
+    "has_unsaved_work",
+    "confirm",
+    "open_project",
+    "pick_folder"
+   ],
+   "writes": [
+    "ProjectMenu.open"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:541:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 541,
+   "end_line": 541,
+   "fn": "ProjectMenu",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"menu-item\"> \u201cShare project\u2026\u201d (via `share`)",
+   "element": {
+    "name": "button",
+    "class": "menu-item",
+    "title": "Save the project as a .delosproject file to share with others",
+    "label": "Share project\u2026"
+   },
+   "via": "share",
+   "calls": [
+    "share_file_name",
+    "pick_save_path",
+    "share_project"
+   ],
+   "writes": [
+    "ProjectMenu.open"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/mod.rs:547:onclick",
+   "kind": "handler",
+   "file": "src/ui/mod.rs",
+   "line": 547,
+   "end_line": 547,
+   "fn": "ProjectMenu",
+   "detail": "onclick",
+   "describe": "onclick on <button class=\"menu-item\"> (via `close`)",
+   "element": {
+    "name": "button",
+    "class": "menu-item"
+   },
+   "via": "close",
+   "calls": [
+    "has_unsaved_work",
+    "confirm",
+    "close_session"
+   ],
+   "writes": [
+    "ProjectMenu.open"
+   ],
+   "sends": []
+  },
+  {
+   "id": "src/ui/platform.rs:40:webview",
+   "kind": "webview",
+   "file": "src/ui/platform.rs",
+   "line": 40,
+   "end_line": 40,
+   "fn": "use_frame_server",
+   "detail": "use_asset_handler in use_frame_server",
+   "describe": "use_asset_handler in use_frame_server"
+  },
+  {
+   "id": "src/ui/platform.rs:123:dialog",
+   "kind": "dialog",
+   "file": "src/ui/platform.rs",
+   "line": 123,
+   "end_line": 123,
+   "fn": "choose_save_target",
+   "detail": "AsyncFileDialog in choose_save_target",
+   "describe": "AsyncFileDialog in choose_save_target"
+  },
+  {
+   "id": "src/ui/platform.rs:132:env:HOME",
+   "kind": "env",
+   "file": "src/ui/platform.rs",
+   "line": 132,
+   "end_line": 132,
+   "fn": "choose_save_target",
+   "detail": "env HOME",
+   "describe": "env HOME"
+  },
+  {
+   "id": "src/ui/platform.rs:161:webview",
+   "kind": "webview",
+   "file": "src/ui/platform.rs",
+   "line": 161,
+   "end_line": 161,
+   "fn": "device_pixel_ratio",
+   "detail": "document::eval in device_pixel_ratio",
+   "describe": "document::eval in device_pixel_ratio"
+  },
+  {
+   "id": "src/ui/platform.rs:172:dialog",
+   "kind": "dialog",
+   "file": "src/ui/platform.rs",
+   "line": 172,
+   "end_line": 172,
+   "fn": "pick_project_file",
+   "detail": "AsyncFileDialog in pick_project_file",
+   "describe": "AsyncFileDialog in pick_project_file"
+  },
+  {
+   "id": "src/ui/platform.rs:183:dialog",
+   "kind": "dialog",
+   "file": "src/ui/platform.rs",
+   "line": 183,
+   "end_line": 183,
+   "fn": "pick_folder",
+   "detail": "AsyncFileDialog in pick_folder",
+   "describe": "AsyncFileDialog in pick_folder"
+  },
+  {
+   "id": "src/ui/platform.rs:205:dialog",
+   "kind": "dialog",
+   "file": "src/ui/platform.rs",
+   "line": 205,
+   "end_line": 205,
+   "fn": "choose_save_target_titled",
+   "detail": "AsyncFileDialog in choose_save_target_titled",
+   "describe": "AsyncFileDialog in choose_save_target_titled"
+  },
+  {
+   "id": "src/ui/platform.rs:222:dialog",
+   "kind": "dialog",
+   "file": "src/ui/platform.rs",
+   "line": 222,
+   "end_line": 222,
+   "fn": "confirm",
+   "detail": "AsyncMessageDialog in confirm",
+   "describe": "AsyncMessageDialog in confirm"
+  },
+  {
+   "id": "src/ui/session.rs:157:fs:fs::read_dir",
+   "kind": "fs",
+   "file": "src/ui/session.rs",
+   "line": 157,
+   "end_line": 157,
+   "fn": "create_project",
+   "detail": "fs::read_dir in create_project",
+   "describe": "fs::read_dir in create_project"
+  },
+  {
+   "id": "src/ui/session.rs:251:use_effect",
+   "kind": "effect",
+   "file": "src/ui/session.rs",
+   "line": 251,
+   "end_line": 269,
+   "fn": "use_autosave",
+   "detail": "use_effect in use_autosave",
+   "describe": "use_effect in use_autosave",
+   "calls": [
+    "Worker::save_project",
+    "App::all_images"
+   ],
+   "writes": [
+    "App.save_state"
+   ],
+   "sends": [],
+   "subscribes": [
+    "App.graph",
+    "App.session"
+   ]
+  },
+  {
+   "id": "src/ui/session.rs:300:fs:read_bytes",
+   "kind": "fs",
+   "file": "src/ui/session.rs",
+   "line": 300,
+   "end_line": 300,
+   "fn": "start_imports",
+   "detail": "read_bytes in start_imports",
+   "describe": "read_bytes in start_imports"
+  },
+  {
+   "id": "src/worker.rs:253:fs:fs::read",
+   "kind": "fs",
+   "file": "src/worker.rs",
+   "line": 253,
+   "end_line": 253,
+   "fn": "Worker::import",
+   "detail": "fs::read in Worker::import",
+   "describe": "fs::read in Worker::import"
+  },
+  {
+   "id": "src/worker.rs:368:fs:fs::read_to_string",
+   "kind": "fs",
+   "file": "src/worker.rs",
+   "line": 368,
+   "end_line": 368,
+   "fn": "Worker::save_project",
+   "detail": "fs::read_to_string in Worker::save_project",
+   "describe": "fs::read_to_string in Worker::save_project"
+  },
+  {
+   "id": "src/worker.rs:404:fs:fs::read_dir",
+   "kind": "fs",
+   "file": "src/worker.rs",
+   "line": 404,
+   "end_line": 404,
+   "fn": "new_stash_dir",
+   "detail": "fs::read_dir in new_stash_dir",
+   "describe": "fs::read_dir in new_stash_dir"
+  }
+ ]
+}

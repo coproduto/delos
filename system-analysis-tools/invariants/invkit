@@ -1,0 +1,15 @@
+#!/usr/bin/env -S uv run --quiet --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = []
+# ///
+"""invkit: invariant-catalogue tools. See README.md / AGENTS.md."""
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+
+from invkit_lib.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())

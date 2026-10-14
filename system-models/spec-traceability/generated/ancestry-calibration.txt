@@ -1,0 +1,20 @@
+U1    code+span+state      20/46   Undo and redo
+U2    span                  6/18   Keyboard shortcuts
+U3    span                 44/51   Adding and deleting nodes rewire the graph
+U4    span                 37/37   The inspector beyond parameters
+U5    span                 23/106  How previews are produced
+U6    code                  4/14   GPU memory policy
+U7    code                 20/31   The expensive-result cache
+U8    span                  4/175  Operator parameters the spec does not name
+U9    code                  4/5    A third answer to a size conflict
+U10   span+state           31/54   Image formats
+U11   code                  9/23   Where exports go
+U12   code+span+state      19/28   Errors and progress shown in place
+U13   span+state           12/15   Choosing the backend at run time
+U14   span+state          108/108  Navigating the views
+U15   span                 39/44   Layer stacks grow from the inspector
+U16   span+state           19/29   Session housekeeping
+
+overlap: 16 of 16 (lax; compare with random placement)
+enrichment: 51% of cited code lines flagged vs 32% of the same files = x1.57
+state fields 20 · spans 98 (1123 code lines) · groups 141 (36 triggered) · support 275 fn/1951 lines · unspecified 162 fn/713 lines · specified 218 fn/4395 lines · partly specified 21 fn/947 lines

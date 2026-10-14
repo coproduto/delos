@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delos Architecture Overview</title>
+<style>
+:root {
+  --bg: #f7f6f2; --panel: #ffffff; --ink: #1d1d1f; --muted: #5d5d63; --line: #d6d4cc;
+  --ui: #2f6fdb;     --ui-bg: #eaf1fd;
+  --wk: #b8650f;     --wk-bg: #fdf1e3;
+  --en: #1f8a5b;     --en-bg: #e6f5ee;
+  --st: #5f6470;     --st-bg: #eef0f3;
+  --doc: #7b46c9;    --doc-bg: #f2ecfb;
+  --arrow: #6b6b72; --hl: #f5c542;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141417; --panel: #1d1d22; --ink: #ececf0; --muted: #a2a2ac; --line: #34343c;
+    --ui: #7aa7ff;  --ui-bg: #1b2538;
+    --wk: #f0a656;  --wk-bg: #33261a;
+    --en: #5ccf98;  --en-bg: #16301f;
+    --st: #a9afba;  --st-bg: #25272d;
+    --doc: #b791f5; --doc-bg: #2a2140;
+    --arrow: #9a9aa4; --hl: #f5c542;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141417; --panel: #1d1d22; --ink: #ececf0; --muted: #a2a2ac; --line: #34343c;
+  --ui: #7aa7ff;  --ui-bg: #1b2538;
+  --wk: #f0a656;  --wk-bg: #33261a;
+  --en: #5ccf98;  --en-bg: #16301f;
+  --st: #a9afba;  --st-bg: #25272d;
+  --doc: #b791f5; --doc-bg: #2a2140;
+  --arrow: #9a9aa4; --hl: #f5c542;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+main { max-width: 1080px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.01em; }
+h2 { font-size: 18px; margin: 40px 0 12px; }
+.lede { color: var(--muted); margin: 0 0 24px; max-width: 760px; }
+code, .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.88em; }
+.diagram { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 720px; height: auto; }
+svg text { fill: var(--ink); font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, sans-serif; }
+svg .band-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; }
+svg .name { font-size: 13px; font-weight: 650; }
+svg .ns { font-size: 10.5px; font-weight: 600; }
+svg .detail { font-size: 10.5px; fill: var(--muted); }
+svg .alabel { font-size: 10.5px; fill: var(--muted); font-style: italic; }
+svg .id { font-size: 10.5px; font-weight: 700; fill: #fff; }
+svg .comp { cursor: pointer; }
+svg .comp rect.box { stroke-width: 1.5; transition: stroke-width .15s; }
+svg .comp:hover rect.box, svg .comp.active rect.box { stroke-width: 3; }
+.arrow { stroke: var(--arrow); stroke-width: 1.6; fill: none; }
+.hint { color: var(--muted); font-size: 13px; margin: 8px 4px 0; }
+ol.loop { margin: 0; padding-left: 22px; }
+ol.loop li { margin: 4px 0; }
+.loops { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.loops > div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+.loops h3 { margin: 0 0 6px; font-size: 15px; }
+.tag { display: inline-block; font-family: ui-monospace, Menlo, monospace; font-size: 11px; font-weight: 700;
+  color: #fff; border-radius: 4px; padding: 0 5px; line-height: 17px; vertical-align: 1px; }
+.t-ui { background: var(--ui); } .t-wk { background: var(--wk); } .t-en { background: var(--en); }
+.t-st { background: var(--st); } .t-doc { background: var(--doc); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag, :root:not([data-theme="light"]) svg .id { color: #111; fill: #111; } }
+:root[data-theme="dark"] .tag, :root[data-theme="dark"] svg .id { color: #111; fill: #111; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px; padding: 12px 14px; scroll-margin-top: 16px; transition: box-shadow .2s; }
+.card.active { box-shadow: 0 0 0 3px var(--hl); }
+.card h3 { margin: 0 0 6px; font-size: 15px; }
+.card p { margin: 0 0 8px; font-size: 14px; }
+.card .files { font-size: 12px; color: var(--muted); margin: 0; }
+.c-ui { border-left-color: var(--ui); } .c-wk { border-left-color: var(--wk); } .c-en { border-left-color: var(--en); }
+.c-st { border-left-color: var(--st); } .c-doc { border-left-color: var(--doc); }
+.group-title { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 20px 0 8px; }
+.ask { margin-top: 32px; padding: 14px 16px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-size: 14px; }
+@media (max-width: 700px) { .loops { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Delos: how the system is put together</h1>
+  <p class="lede">This page goes one level below the spec. It covers the main parts of the running application and how they connect, not individual operators or algorithms. Each part has a hierarchical name, such as <span class="tag t-ui">Interface.DisplayResolver</span> or <span class="tag t-st">Filesystem.Projects</span>. The first half is the layer it belongs to and the second half is the part itself. Use these names to ask for more detail on any part.</p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 1000 700" role="img" aria-label="Architecture diagram of Delos">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--arrow)"/>
+      </marker>
+    </defs>
+
+    <!-- Bands -->
+    <rect x="10" y="10" width="690" height="170" rx="10" fill="var(--ui-bg)"/>
+    <text x="25" y="34" class="band-label" style="fill:var(--ui)"><tspan class="mono" style="font-size:13px;letter-spacing:0">Interface</tspan>  ·  Dioxus UI shared by desktop, web and mobile</text>
+    <rect x="10" y="200" width="690" height="110" rx="10" fill="var(--wk-bg)"/>
+    <text x="25" y="224" class="band-label" style="fill:var(--wk)"><tspan class="mono" style="font-size:13px;letter-spacing:0">Workers</tspan>  ·  slow work kept off the UI thread</text>
+    <rect x="10" y="330" width="690" height="190" rx="10" fill="var(--en-bg)"/>
+    <text x="25" y="354" class="band-label" style="fill:var(--en)"><tspan class="mono" style="font-size:13px;letter-spacing:0">Engine</tspan>  ·  turns the graph into pixels</text>
+    <rect x="10" y="540" width="690" height="150" rx="10" fill="var(--st-bg)"/>
+    <text x="25" y="564" class="band-label" style="fill:var(--st)"><tspan class="mono" style="font-size:13px;letter-spacing:0">Filesystem</tspan>  ·  everything read from or written to disk</text>
+    <rect x="715" y="10" width="275" height="680" rx="10" fill="var(--doc-bg)"/>
+    <text x="730" y="34" class="band-label" style="fill:var(--doc)"><tspan class="mono" style="font-size:13px;letter-spacing:0">Document</tspan>  ·  shared by every layer</text>
+
+    <!-- Interface -->
+    <g class="comp" data-id="Interface.Views">
+      <rect class="box" x="25" y="50" width="155" height="115" rx="8" fill="var(--panel)" stroke="var(--ui)"/>
+      <text x="35" y="70" class="ns mono" style="fill:var(--ui)">Interface.</text>
+      <text x="35" y="86" class="name mono">Views</text>
+      <text x="35" y="109" class="detail">Graph view · Image view</text>
+      <text x="35" y="124" class="detail">Inspector · Dialogs</text>
+      <text x="35" y="144" class="detail">Forms &amp; handles are built</text>
+      <text x="35" y="159" class="detail">from node declarations</text>
+    </g>
+    <g class="comp" data-id="Interface.DisplayResolver">
+      <rect class="box" x="195" y="50" width="155" height="115" rx="8" fill="var(--panel)" stroke="var(--ui)"/>
+      <text x="205" y="70" class="ns mono" style="fill:var(--ui)">Interface.</text>
+      <text x="205" y="86" class="name mono">DisplayResolver</text>
+      <text x="205" y="109" class="detail">Which image is shown,</text>
+      <text x="205" y="124" class="detail">whose controls are drawn,</text>
+      <text x="205" y="139" class="detail">and where they land on it</text>
+    </g>
+    <g class="comp" data-id="Interface.Sessions">
+      <rect class="box" x="365" y="50" width="155" height="115" rx="8" fill="var(--panel)" stroke="var(--ui)"/>
+      <text x="375" y="70" class="ns mono" style="fill:var(--ui)">Interface.</text>
+      <text x="375" y="86" class="name mono">Sessions</text>
+      <text x="375" y="109" class="detail">Quick mode or Project</text>
+      <text x="375" y="124" class="detail">"Create a project?" prompt</text>
+      <text x="375" y="139" class="detail">Autosave after each change</text>
+    </g>
+    <g class="comp" data-id="Interface.State">
+      <rect class="box" x="535" y="50" width="155" height="115" rx="8" fill="var(--panel)" stroke="var(--ui)"/>
+      <text x="545" y="70" class="ns mono" style="fill:var(--ui)">Interface.</text>
+      <text x="545" y="86" class="name mono">State</text>
+      <text x="545" y="109" class="detail">Graph, selection, view</text>
+      <text x="545" y="124" class="detail">Undo / redo history</text>
+      <text x="545" y="144" class="detail">Every edit goes through</text>
+      <text x="545" y="159" class="detail">here</text>
+    </g>
+
+    <!-- Worker -->
+    <g class="comp" data-id="Workers.Background">
+      <rect class="box" x="25" y="235" width="665" height="60" rx="8" fill="var(--panel)" stroke="var(--wk)"/>
+      <text x="35" y="258" class="name mono"><tspan class="ns" style="fill:var(--wk)">Workers.</tspan>Background</text>
+      <text x="35" y="282" class="detail">Previews (the newest request wins) · Imports · Exports in bands · Project I/O. It reports back to the UI with messages.</text>
+    </g>
+
+    <!-- Engine -->
+    <g class="comp" data-id="Engine.Evaluator">
+      <rect class="box" x="25" y="370" width="130" height="135" rx="8" fill="var(--panel)" stroke="var(--en)"/>
+      <text x="35" y="390" class="ns mono" style="fill:var(--en)">Engine.</text>
+      <text x="35" y="406" class="name mono">Evaluator</text>
+      <text x="35" y="429" class="detail">Starts at the shown</text>
+      <text x="35" y="444" class="detail">output and asks each</text>
+      <text x="35" y="459" class="detail">node for only the</text>
+      <text x="35" y="474" class="detail">region and resolution</text>
+      <text x="35" y="489" class="detail">it needs</text>
+    </g>
+    <g class="comp" data-id="Engine.Kernels">
+      <rect class="box" x="180" y="370" width="130" height="135" rx="8" fill="var(--panel)" stroke="var(--en)"/>
+      <text x="190" y="390" class="ns mono" style="fill:var(--en)">Engine.</text>
+      <text x="190" y="406" class="name mono">Kernels</text>
+      <text x="190" y="429" class="detail">Per-pixel operations,</text>
+      <text x="190" y="444" class="detail">each written twice:</text>
+      <text x="190" y="464" class="detail mono">WGSL  (GPU)</text>
+      <text x="190" y="479" class="detail mono">Rust  (CPU)</text>
+    </g>
+    <g class="comp" data-id="Engine.Backends">
+      <rect class="box" x="335" y="370" width="130" height="135" rx="8" fill="var(--panel)" stroke="var(--en)"/>
+      <text x="345" y="390" class="ns mono" style="fill:var(--en)">Engine.</text>
+      <text x="345" y="406" class="name mono">Backends</text>
+      <rect x="345" y="417" width="110" height="38" rx="5" fill="var(--en-bg)"/>
+      <text x="400" y="433" class="detail" text-anchor="middle" style="font-weight:600;fill:var(--ink)">GPU · wgpu</text>
+      <text x="400" y="447" class="detail" text-anchor="middle">preferred</text>
+      <rect x="345" y="461" width="110" height="38" rx="5" fill="var(--st-bg)"/>
+      <text x="400" y="477" class="detail" text-anchor="middle" style="font-weight:600;fill:var(--ink)">CPU · rayon</text>
+      <text x="400" y="491" class="detail" text-anchor="middle">fallback</text>
+    </g>
+    <g class="comp" data-id="Engine.Sources">
+      <rect class="box" x="490" y="370" width="130" height="135" rx="8" fill="var(--panel)" stroke="var(--en)"/>
+      <text x="500" y="390" class="ns mono" style="fill:var(--en)">Engine.</text>
+      <text x="500" y="406" class="name mono">Sources</text>
+      <text x="500" y="429" class="detail">Decoded once into a</text>
+      <text x="500" y="444" class="detail">mip pyramid (many</text>
+      <text x="500" y="459" class="detail">scales); kept on the</text>
+      <text x="500" y="474" class="detail">GPU when memory</text>
+      <text x="500" y="489" class="detail">allows</text>
+    </g>
+    <!-- engine internal arrows -->
+    <line x1="156" y1="437" x2="178" y2="437" class="arrow" marker-end="url(#ah)"/>
+    <line x1="311" y1="437" x2="333" y2="437" class="arrow" marker-end="url(#ah)"/>
+    <line x1="489" y1="437" x2="467" y2="437" class="arrow" marker-end="url(#ah)"/>
+
+    <!-- Disk -->
+    <g class="comp" data-id="Filesystem.Codecs">
+      <rect class="box" x="25" y="575" width="300" height="100" rx="8" fill="var(--panel)" stroke="var(--st)"/>
+      <text x="35" y="595" class="ns mono" style="fill:var(--st)">Filesystem.</text>
+      <text x="35" y="611" class="name mono">Codecs</text>
+      <text x="35" y="634" class="detail">A list of codecs for decoding and encoding</text>
+      <text x="35" y="649" class="detail">Exports render in horizontal bands, so the whole</text>
+      <text x="35" y="664" class="detail">full-resolution image is never in memory at once</text>
+    </g>
+    <g class="comp" data-id="Filesystem.Projects">
+      <rect class="box" x="340" y="575" width="350" height="100" rx="8" fill="var(--panel)" stroke="var(--st)"/>
+      <text x="350" y="595" class="ns mono" style="fill:var(--st)">Filesystem.</text>
+      <text x="350" y="611" class="name mono">Projects</text>
+      <text x="350" y="634" class="detail mono">project.delos  +  inputs/</text>
+      <text x="350" y="654" class="detail">Atomic saves · checks on open · keeps inputs/ in sync</text>
+      <text x="350" y="669" class="detail">Shares as a .delosproject zip</text>
+    </g>
+
+    <!-- Document model -->
+    <g class="comp" data-id="Document.Graph">
+      <rect class="box" x="730" y="50" width="245" height="180" rx="8" fill="var(--panel)" stroke="var(--doc)"/>
+      <text x="740" y="70" class="ns mono" style="fill:var(--doc)">Document.</text>
+      <text x="740" y="86" class="name mono">Graph</text>
+      <text x="740" y="109" class="detail">Nodes, with each edge stored on the node</text>
+      <text x="740" y="124" class="detail">that consumes it (node + which output)</text>
+      <text x="740" y="146" class="detail">• Works out sizes (generators have none)</text>
+      <text x="740" y="161" class="detail">• Detects layer stacks and size conflicts</text>
+      <text x="740" y="176" class="detail">• Maps coordinates from one node to another</text>
+      <text x="740" y="191" class="detail">• Content hashes for caching</text>
+      <text x="740" y="206" class="detail">• Rejects connections that make a cycle</text>
+    </g>
+    <g class="comp" data-id="Document.NodeKinds">
+      <rect class="box" x="730" y="250" width="245" height="270" rx="8" fill="var(--panel)" stroke="var(--doc)"/>
+      <text x="740" y="270" class="ns mono" style="fill:var(--doc)">Document.</text>
+      <text x="740" y="286" class="name mono">NodeKinds</text>
+      <text x="740" y="309" class="detail">Each operator implements one trait</text>
+      <text x="740" y="324" class="detail">and is added to a registry. It declares:</text>
+      <text x="750" y="346" class="detail">• input ports and outputs</text>
+      <text x="750" y="361" class="detail">• parameters (these become forms)</text>
+      <text x="750" y="376" class="detail">• its size rule</text>
+      <text x="750" y="391" class="detail">• how to render a region</text>
+      <text x="750" y="406" class="detail">• on-canvas controls (overlays)</text>
+      <text x="750" y="421" class="detail">• how its coordinates map to inputs</text>
+      <text x="740" y="447" class="detail">The rest of the app has no code</text>
+      <text x="740" y="462" class="detail">specific to any one operator.</text>
+      <text x="740" y="490" class="detail mono">basic · generators · resize</text>
+      <text x="740" y="505" class="detail mono">split · bgremove</text>
+    </g>
+    <g class="comp" data-id="Document.Expressions">
+      <rect class="box" x="730" y="575" width="245" height="100" rx="8" fill="var(--panel)" stroke="var(--doc)"/>
+      <text x="740" y="595" class="ns mono" style="fill:var(--doc)">Document.</text>
+      <text x="740" y="611" class="name mono">Expressions</text>
+      <text x="740" y="634" class="detail">Converts the graph to Lisp-like text and back</text>
+      <text x="740" y="649" class="detail">Writes every parameter, defaults included</text>
+      <text x="740" y="664" class="detail">Reports errors with line and column</text>
+    </g>
+
+    <!-- Cross-layer arrows -->
+    <!-- Interface.State -> Document.Graph -->
+    <line x1="691" y1="105" x2="728" y2="105" class="arrow" marker-end="url(#ah)"/>
+    <text x="709" y="97" class="alabel" text-anchor="middle">owns</text>
+    <!-- Interface.State -> Workers.Background preview/export jobs -->
+    <line x1="612" y1="166" x2="612" y2="233" class="arrow" marker-end="url(#ah)"/>
+    <text x="606" y="196" class="alabel" text-anchor="end">graph snapshot:</text>
+    <text x="606" y="210" class="alabel" text-anchor="end">preview / export jobs</text>
+    <!-- Interface.Sessions -> Workers.Background autosave -->
+    <line x1="442" y1="166" x2="442" y2="233" class="arrow" marker-end="url(#ah)"/>
+    <text x="436" y="203" class="alabel" text-anchor="end">save / open / share</text>
+    <!-- Workers.Background -> Interface.Views frames -->
+    <line x1="102" y1="233" x2="102" y2="167" class="arrow" marker-end="url(#ah)"/>
+    <text x="110" y="184" class="alabel">frames, progress,</text>
+    <text x="110" y="196" class="alabel">errors</text>
+    <!-- Interface.DisplayResolver -> Interface.Views -->
+    <line x1="194" y1="120" x2="182" y2="120" class="arrow" marker-end="url(#ah)"/>
+    <!-- Workers.Background -> Engine.Evaluator -->
+    <line x1="90" y1="296" x2="90" y2="368" class="arrow" marker-end="url(#ah)"/>
+    <text x="98" y="322" class="alabel">render(output,</text>
+    <text x="98" y="336" class="alabel">region, resolution)</text>
+    <!-- Workers.Background -> disk lane -->
+    <line x1="655" y1="296" x2="655" y2="573" class="arrow" marker-end="url(#ah)"/>
+    <text x="0" y="0" class="alabel" text-anchor="middle" transform="translate(672 440) rotate(90)">project I/O · exports</text>
+    <!-- Engine -> Document.NodeKinds -->
+    <path d="M 620 348 L 700 348 L 700 300 L 728 300" class="arrow" marker-end="url(#ah)"/>
+    <text x="612" y="352" class="alabel" text-anchor="end">calls each node kind's render() →</text>
+    <!-- Filesystem.Projects <-> Document.Expressions -->
+    <line x1="692" y1="625" x2="728" y2="625" class="arrow" marker-start="url(#ah)" marker-end="url(#ah)"/>
+  </svg>
+  </div>
+  <p class="hint">Click any box to jump to its description.</p>
+
+  <h2>The two main loops</h2>
+  <div class="loops">
+    <div>
+      <h3>Edit → see the result</h3>
+      <ol class="loop">
+        <li>You change something in <span class="tag t-ui">Interface.Views</span>, such as dragging a handle or a slider.</li>
+        <li><span class="tag t-ui">Interface.State</span> applies the change to the <span class="tag t-doc">Document.Graph</span> graph and records an undo step. A continuous drag counts as one step.</li>
+        <li><span class="tag t-ui">Interface.DisplayResolver</span> works out what the image view should show and which controls to draw over it.</li>
+        <li><span class="tag t-wk">Workers.Background</span> gets a preview job and drops any older job that is still running.</li>
+        <li><span class="tag t-en">Engine.Evaluator</span> pulls just the visible region at screen resolution through the <span class="tag t-doc">Document.NodeKinds</span> node kinds. Their <span class="tag t-en">Engine.Kernels</span> kernels run on <span class="tag t-en">Engine.Backends</span> and sample <span class="tag t-en">Engine.Sources</span>.</li>
+        <li>The finished frame goes back to <span class="tag t-ui">Interface.Views</span>.</li>
+      </ol>
+    </div>
+    <div>
+      <h3>Change → saved project</h3>
+      <ol class="loop">
+        <li>Any change to the graph in <span class="tag t-ui">Interface.State</span> triggers autosave in <span class="tag t-ui">Interface.Sessions</span>. This only happens in project mode; quick mode saves nothing.</li>
+        <li><span class="tag t-wk">Workers.Background</span> gets a snapshot of the graph and the images it knows about.</li>
+        <li><span class="tag t-doc">Document.Expressions</span> turns the graph into text. <span class="tag t-st">Filesystem.Projects</span> writes it atomically and updates <code>inputs/</code>: it copies in new images and moves images that are no longer used to a session folder, so undo can still restore them.</li>
+        <li>The status bar shows the result as Saving… or Saved.</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2>Components</h2>
+
+  <div class="group-title">Interface · user interface</div>
+  <div class="cards">
+    <div class="card c-ui" id="Interface.Views"><h3><span class="tag t-ui">Interface.Views</span></h3>
+      <p>The visible parts of the app: the graph editor, the image view with its on-canvas controls, the inspector (parameter forms) and dialogs (export, size conflicts, project prompts). The forms and controls are not written separately for each operator. They are generated from what each <span class="tag t-doc">Document.NodeKinds</span> node kind declares.</p>
+      <p class="files"><code>src/ui/graph_view.rs</code>, <code>image_view.rs</code>, <code>inspector.rs</code>, <code>dialogs.rs</code></p></div>
+    <div class="card c-ui" id="Interface.DisplayResolver"><h3><span class="tag t-ui">Interface.DisplayResolver</span></h3>
+      <p>Decides what the image view shows: the output, a relocated output, or the selected operator's output or input. It also decides whether the view stays fixed and which node's controls are drawn. It chains the coordinate mappings of the nodes in between, so an upstream node's controls land in the right place even after Clip or Resize. This covers spec §3.2–3.3. It also picks what "Export" exports.</p>
+      <p class="files"><code>App::displayed()</code> in <code>src/ui/state.rs</code>, using <code>Graph::space_map</code></p></div>
+    <div class="card c-ui" id="Interface.Sessions"><h3><span class="tag t-ui">Interface.Sessions</span></h3>
+      <p>Handles quick mode versus project mode, the "create a project?" question on the first import, opening, closing and sharing projects, and autosave. Every action is a plain function of the app state. The end-to-end tests call the same functions the UI does, without opening a window.</p>
+      <p class="files"><code>src/ui/session.rs</code></p></div>
+    <div class="card c-ui" id="Interface.State"><h3><span class="tag t-ui">Interface.State</span></h3>
+      <p>The single shared state: graph, selection, view settings, undo/redo history and export status. It is stored as reactive signals, so the UI updates when they change. All changes go through <code>edit</code>, and continuous drags go through <code>edit_coalesced</code>. Each change starts a new preview and an autosave.</p>
+      <p class="files"><code>src/ui/state.rs</code></p></div>
+  </div>
+
+  <div class="group-title">Workers · background work</div>
+  <div class="cards">
+    <div class="card c-wk" id="Workers.Background"><h3><span class="tag t-wk">Workers.Background</span></h3>
+      <p>Keeps slow work off the UI thread. Previews run on a dedicated thread: when a newer request arrives, the older render is abandoned. The worker also decodes imports, runs exports with progress and cancellation, and creates, opens, saves and shares projects. Results go back to the UI as messages, such as <code>Frame</code>, <code>ExportProgress</code> and <code>ProjectSaved</code>. On the web, which has no threads, the same jobs take turns on the main thread.</p>
+      <p class="files"><code>src/worker.rs</code></p></div>
+  </div>
+
+  <div class="group-title">Engine · rendering</div>
+  <div class="cards">
+    <div class="card c-en" id="Engine.Evaluator"><h3><span class="tag t-en">Engine.Evaluator</span></h3>
+      <p>Rendering is demand-driven. The shown node gets a <em>request</em>: a region in its own coordinate space and a pixel grid to fill. The node asks its inputs for exactly what it needs, and so on up the graph. A preview asks for a screen-sized grid and an export asks for full-resolution bands. Because of this, preview cost depends on the window size, not the image size. Ordinary node results are not cached; only expensive ones are, such as background-removal masks.</p>
+      <p class="files"><code>src/engine/mod.rs</code>, <code>geom.rs</code>, <code>cache.rs</code></p></div>
+    <div class="card c-en" id="Engine.Kernels"><h3><span class="tag t-en">Engine.Kernels</span></h3>
+      <p>The per-pixel building blocks that node kinds call, such as blend, invert and sampling. Each one is written twice, in WGSL for the GPU and in Rust for the CPU, with the same parameters, so both backends give matching results.</p>
+      <p class="files"><code>src/engine/kernels.rs</code></p></div>
+    <div class="card c-en" id="Engine.Backends"><h3><span class="tag t-en">Engine.Backends</span></h3>
+      <p>The GPU backend uses wgpu compute shaders. Shaders are compiled the first time they are used, intermediate results stay on the GPU between steps, and textures are reused. If no GPU is available, the CPU backend runs the same kernels in parallel with rayon. Data moves between steps as <em>tiles</em>: premultiplied RGBA, stored on either the CPU or the GPU.</p>
+      <p class="files"><code>src/engine/gpu.rs</code>, <code>pool.rs</code>, <code>tile.rs</code></p></div>
+    <div class="card c-en" id="Engine.Sources"><h3><span class="tag t-en">Engine.Sources</span></h3>
+      <p>Each imported image is decoded once into a mip pyramid, a set of copies at smaller and smaller scales, so any region at any zoom is cheap to read. Pyramid levels are uploaded to the GPU in the background and kept there within a memory budget. Until a level is on the GPU, the CPU path is used, so rendering never waits for an upload.</p>
+      <p class="files"><code>src/engine/source.rs</code>, <code>resident.rs</code></p></div>
+  </div>
+
+  <div class="group-title">Document · the edited image</div>
+  <div class="cards">
+    <div class="card c-doc" id="Document.Graph"><h3><span class="tag t-doc">Document.Graph</span></h3>
+      <p>The document itself. Each node stores its own inputs as links to an output of another node, which is how split nodes with several outputs are referenced. The graph answers structural questions: each node's size (generators have none), whether a chain of Stack nodes should be shown as a layer stack, where a Resize node needs to go after a size conflict, and how coordinates map between two nodes.</p>
+      <p class="files"><code>src/graph.rs</code></p></div>
+    <div class="card c-doc" id="Document.NodeKinds"><h3><span class="tag t-doc">Document.NodeKinds</span></h3>
+      <p>Each operator and generator implements the <code>NodeKind</code> trait and is added to a registry. The trait covers its ports and outputs, parameters, size rule, rendering, on-canvas controls, whether it is edited on its input or its output, and how its coordinates map to its inputs. To add an operator, you implement the trait and add it to the registry.</p>
+      <p class="files"><code>src/nodes/mod.rs</code>, <code>basic.rs</code>, <code>generators.rs</code>, <code>resize.rs</code>, <code>split.rs</code>, <code>bgremove.rs</code></p></div>
+    <div class="card c-doc" id="Document.Expressions"><h3><span class="tag t-doc">Document.Expressions</span></h3>
+      <p>Converts between the graph and Delos expressions, the Lisp-like text stored in <code>project.delos</code>. Nodes used more than once are bound with <code>def</code>, and stack chains are written as <code>(stack …)</code>. Every parameter is written out, including defaults. Parse errors give a line and column.</p>
+      <p class="files"><code>src/expr.rs</code></p></div>
+  </div>
+
+  <div class="group-title">Filesystem · files on disk</div>
+  <div class="cards">
+    <div class="card c-st" id="Filesystem.Codecs"><h3><span class="tag t-st">Filesystem.Codecs</span></h3>
+      <p>A list of codecs used for both import and export. An export pulls the image from the graph one horizontal band at a time. The PNG codec writes each band to the file as it arrives, so even a 16K export uses a bounded amount of memory.</p>
+      <p class="files"><code>src/formats.rs</code></p></div>
+    <div class="card c-st" id="Filesystem.Projects"><h3><span class="tag t-st">Filesystem.Projects</span></h3>
+      <p>A project is a directory containing <code>project.delos</code> and <code>inputs/</code>. Saves write a temporary file and then rename it into place, so a half-written file is never left behind. <code>inputs/</code> always holds exactly the images the graph uses. Before opening, the store checks the project's structure, and it rejects any path that points outside the project. It also packs and unpacks <code>.delosproject</code> zip files.</p>
+      <p class="files"><code>src/project.rs</code></p></div>
+  </div>
+
+  <div class="ask">To go deeper, ask about any name, for example: <em>"Explain Interface.DisplayResolver in more detail"</em> or <em>"How do Engine.Evaluator and Engine.Backends decide between GPU and CPU?"</em></div>
+</main>
+<script>
+document.querySelectorAll('svg .comp').forEach(g => {
+  g.addEventListener('click', () => {
+    const id = g.dataset.id;
+    document.querySelectorAll('.active').forEach(e => e.classList.remove('active'));
+    g.classList.add('active');
+    const card = document.getElementById(id);
+    if (card) { card.classList.add('active'); card.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+  });
+});
+</script>
+</body>
+</html>

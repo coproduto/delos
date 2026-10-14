@@ -1,0 +1,18 @@
+{
+  "resolution": 1.0,
+  "weighting": "1 + ln(reference count)",
+  "clusters": {
+    "0":  {"name": "Node kind catalogue",            "region": "Node definitions", "tags": ["nodes", "metadata", "sizing", "registry"]},
+    "1":  {"name": "Graph document & graph editor",  "region": "Document",         "tags": ["model", "graph", "editor-ui", "serialisation-out"]},
+    "2":  {"name": "App shell & session",            "region": "Application",      "tags": ["ui", "state", "undo", "session", "platform", "canvas"]},
+    "3":  {"name": "Parameter schema & parametric kinds", "region": "Node definitions", "tags": ["nodes", "params", "overlays", "inspector-forms", "generators", "splits"]},
+    "4":  {"name": "Region-of-interest render contract", "region": "Rendering",    "tags": ["engine", "geometry", "requests", "render"]},
+    "5":  {"name": "GPU backend & engine services",  "region": "Rendering",        "tags": ["engine", "gpu", "wgpu", "pooling", "profiling", "cache"]},
+    "6":  {"name": "Codecs & export",                "region": "Application",      "tags": ["formats", "export", "feature-slice"]},
+    "7":  {"name": "CPU pixel kernels",              "region": "Rendering",        "tags": ["engine", "kernels", "cpu", "sampling"]},
+    "8":  {"name": "Worker, source images & projects", "region": "Application",    "tags": ["worker", "io", "projects", "source-storage"]},
+    "9":  {"name": "Expression parser & builder",    "region": "Document",         "tags": ["expr", "parsing", "serialisation-in"]},
+    "10": {"name": "GPU residency",                  "region": "Rendering",        "tags": ["engine", "gpu", "memory-budget", "background-upload"]},
+    "11": {"name": "Blend-mode math",                "region": "Rendering",        "tags": ["engine", "pure-functions", "leaf"]}
+  }
+}

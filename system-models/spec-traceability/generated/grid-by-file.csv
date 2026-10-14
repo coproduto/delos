@@ -1,0 +1,91 @@
+id,title,status,Cargo.toml,src/engine/cache.rs,src/engine/geom.rs,src/engine/gpu.rs,src/engine/kernels.rs,src/engine/mod.rs,src/engine/resident.rs,src/engine/source.rs,src/engine/tile.rs,src/expr.rs,src/formats.rs,src/graph.rs,src/nodes/basic.rs,src/nodes/bgremove.rs,src/nodes/generators.rs,src/nodes/mod.rs,src/nodes/resize.rs,src/nodes/split.rs,src/project.rs,src/ui/dialogs.rs,src/ui/graph_view.rs,src/ui/image_view.rs,src/ui/inspector.rs,src/ui/mod.rs,src/ui/platform.rs,src/ui/session.rs,src/ui/state.rs,src/worker.rs,tests/large_images.rs,tests/project_e2e.rs,tests/ui_state.rs,tests
+D1,"Generative image editing",Partial,0,15,0,0,0,0,0,0,0,0,0,0,34,0,3,14,0,0,0,0,0,0,0,13,0,0,0,0,0,0,0,2
+R1,"Written in Rust",Implemented,1,0,0,0,40,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+R2,"Desktop, web and mobile with Dioxus",Partial,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,13,0,0,9,0,0,0,0
+R3,"GPU acceleration wherever possible",Partial,0,0,0,0,11,42,4,0,0,0,0,0,0,39,0,0,58,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4
+R4,"Graceful CPU fallback",Implemented,0,0,0,59,0,23,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,4
+F1,"Load and display images as graph nodes",Implemented,0,0,0,0,0,0,0,23,0,0,17,22,16,0,0,0,0,0,0,0,0,0,0,24,0,6,0,18,0,0,0,3
+F1.1,"Import creates a Static Image connected to the output",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,21,0,0,5,0,0,0,0,1
+F1.2,"Operator parameters: WYSIWYG or form",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,37,0,0,0,0,0,183,163,0,0,0,1,0,0,0,0,0
+F2,"The document is a DAG",Implemented,0,0,0,0,0,7,0,0,0,0,0,27,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,0,0,0,2
+F2.1,"The image view shows what goes to the output",Partial,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,43,0,18,0,0,10,13,0,0,0,1
+F3,"Graph view, alone or beside the image view",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,20,0,0,6,0,0,0,0,0
+F3.1,"Relocating the output",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,23,1,0,0,15,0,0,0,0,3
+F3.1.1,"Double-click to relocate and to reset",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,0,0,0,0,0,0,0,0,0,0,1
+F3.2,"Selecting a node previews it with its controls",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,143,0,7,0,0,10,0,0,0,0,1
+F3.2.1,"Some operators are edited on their input",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,3,0,0,12,0,4,0,0,0,0,9,0,0,0,9,0,0,0,0,1
+F3.3,"Keep the view fixed while editing upstream",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,43,0,8,0,0,13,0,0,0,0,1
+F3.3.1,"Controls follow geometry through intermediate nodes",Partial,0,0,8,0,0,0,0,0,0,0,0,31,6,0,0,7,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2
+F3.3.2,"Say so when the selected node does not contribute",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,2,0,0,0,0,1
+F4,"Export any operator's output; export the visible image by default",Partial,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,8,0,0,9,0,0,0,0,1
+F4.1,"Export follows the relocated output",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,2,0,0,0,1
+F4.2,"Banded, bounded, cancellable export and its dialog",Partial,0,0,0,0,0,9,0,0,0,0,88,0,0,0,0,0,0,0,0,8,0,0,0,21,0,0,5,21,0,0,0,6
+F5,"Combination through operators, with display modalities",Partial,0,0,0,0,0,0,0,0,0,0,0,62,42,0,0,0,0,0,0,0,24,0,28,0,0,0,0,0,0,0,0,2
+O0,"The basic operator set",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,3,3,0,9,3,0,0,0,0,0,0,8,0,0,0,0,0,0,0,4
+O1,"Stack: over-compositing of a front/back chain",Implemented,0,0,0,0,15,0,0,0,0,0,0,25,22,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3
+O1.1,"Editing a stack: disable, remove",Implemented,0,0,0,0,0,0,0,0,0,0,0,22,0,0,0,0,0,0,0,0,23,0,100,0,0,0,0,0,0,0,0,1
+O2,"Disable",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+O3,"Simple reflection",Implemented,0,0,0,0,46,0,0,0,0,0,0,0,37,0,0,0,0,0,0,0,0,28,0,0,0,0,0,0,0,0,0,2
+O4,"Downscale",Partial,0,0,0,0,0,0,0,28,0,0,0,0,0,0,0,0,26,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+O5,"Background removal with rembg-rs",Partial,1,0,0,0,0,0,0,0,0,0,0,0,0,105,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+O6,"Invert",Implemented,0,0,0,0,12,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2
+O7,"Clip",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,29,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+O8,"Resize with selectable interpolation",Partial,0,0,0,0,0,0,0,0,12,0,0,0,0,0,0,0,125,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+O9,"Blend with the Wikipedia blend modes",Implemented,0,0,0,0,218,0,0,0,0,0,0,0,14,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2
+O10,"Logic-gate blend modes",Implemented,0,0,0,0,27,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+S1,"Splits produce two complementary outputs",Implemented,0,0,0,0,22,0,0,0,0,0,0,0,0,0,0,0,0,33,0,0,0,0,0,0,0,0,0,0,0,0,0,2
+S2,"Vertical, horizontal and rectangle splits and their controls",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,41,0,0,0,68,0,0,0,0,0,0,0,0,0,1
+S3,"Exact partition by pixel centre",Implemented,0,0,0,0,14,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,0,0,0,0,0,0,0,0,0,4
+S4,"Editing view of a split",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+S5,"Specific outputs as inputs, relocation and export targets",Partial,0,0,0,0,0,0,0,0,0,0,0,25,0,0,0,0,0,0,0,0,29,0,8,0,0,0,11,0,0,0,0,3
+S6,"Split sizes",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+S7,"Any number of outputs per node",Implemented,0,0,0,0,0,0,0,0,0,16,0,14,0,0,0,11,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2
+N1,"Generators take no inputs",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,26,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+N2,"Size-less generators and the output canvas",Implemented,0,0,0,0,4,0,0,0,0,0,0,8,6,0,3,3,0,0,0,0,0,28,0,0,0,0,0,0,0,0,0,1
+N3,"Default canvas fits the window",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,10,0,0,0,25,0,0,0,0,0
+N4,"Generators adapt to what they are combined with",Implemented,0,0,0,0,0,0,0,0,0,0,0,2,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+N5,"The initial generators",Implemented,0,0,0,0,239,0,0,0,0,0,0,0,0,0,160,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+N6,"AI image generation (planned)",Deferred,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+Z1,"Ask which size to use, insert a Resize",Implemented,0,0,0,0,0,0,0,0,0,0,0,26,0,0,0,0,0,0,0,62,0,0,0,0,0,0,15,0,0,0,0,1
+P1,"Two ways of working; quick mode",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16,0,11,0,0,0,1
+P2,"Project mode",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,2
+P3,"First import asks whether to start a project",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,21,0,0,0,0,0,13,0,0,0,0,0,2
+P3.1,"The question mentions the storage cost",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0
+P3.2,"Declining starts quick mode for good",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,11,0,0,0,0,0,1
+P3.3,"Accepting creates a named project in the default location",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,1,0,23,0,8,0,0,0,3
+P4,"New project from current work",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,0,0,0,0,9,0,8,0,0,0,0,0,1
+P5,"The footer shows mode, location and save state",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,27,0,0,0,1,0,0,0,2
+P6,"Autosave after every change",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,16,0,0,0,1
+P6.1,"Atomic saves",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,22,0,0,0,0,0,0,0,0,0,0,0,0,0
+P6.2,"Opening a project writes nothing",Partial,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,0,0,0,8,23,0,0,0,0,1
+P7,"Confirm before leaving quick mode with work",Partial,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,13,20,3,0,0,0,0,0,1
+P8,"A project is a directory with project.delos and inputs/",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,1
+P9,"Images copied unchanged, or as PNG",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,37,0,0,0,0,0,0,0,0,8,0,0,0,3
+P10,"inputs/ holds exactly the images in use",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,34,0,0,0,0,0,0,0,0,1,0,0,0,2
+P11,"Undo history is not part of the project",Implemented,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,0,0,0,0,1
+P11.1,"Images the history needs live in a session stash",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,18,0,0,0,0,0,0,0,0,13,0,0,0,1
+P11.2,"Undo copies images back unchanged",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,0,0,0,0,0,0,0,0,0,1
+P12,"Share Project writes a .delosproject zip",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,15,0,0,0,0,10,0,0,0,2,0,0,0,2
+P13,"Import Project accepts three forms",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,0,0,0,13,3,5,0,0,0,0,0,2
+P13.1,"Archives unpack under a new name",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,52,0,0,0,0,0,0,2,0,0,0,0,0,2
+P13.2,"Directories open in place",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,1
+P13.3,"Opening by drag and drop",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,14,0,0,0,0,0,0,0,0
+P14,"Verify the structure before opening",Implemented,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,22,0,0,0,0,0,0,1,0,0,0,0,0,2
+P15,"Unsafe paths are rejected; failed imports leave nothing",Partial,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,29,0,0,0,0,0,0,0,0,0,0,0,0,2
+X1,"Mobile: projects without pickers",Implemented,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,11,9,0,0,0,0,0,0,0
+X2,"Web: always quick mode",Implemented,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,0,4,0,0,0,0,0,0
+X3,"Platform limits accepted for now",Deferred,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+E1,"A Lisp-like plain-text form of the graph",Implemented,0,0,0,0,0,0,0,0,0,185,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,2
+E2,"Nodes, inputs in port order, `_` for empty ports",Implemented,0,0,0,0,0,0,0,0,0,33,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2
+E3,"Several outputs: `def` and `name.output`",Implemented,0,0,0,0,0,0,0,0,0,27,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4
+E4,"`(stack front … back)`",Implemented,0,0,0,0,0,0,0,0,0,24,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+E5,"`(image ""inputs/…"")`",Implemented,0,0,0,0,0,0,0,0,0,44,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2
+E6,"`:at` and `:title`",Implemented,0,0,0,0,0,0,0,0,0,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1
+E7,"Values and comments",Implemented,0,0,0,0,0,0,0,0,0,62,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2
+E8,"Write every parameter; read with defaults and auto-layout",Implemented,0,0,0,0,0,0,0,0,0,40,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2
+E9,"Fast serialisation",Implemented,0,0,0,0,0,0,0,0,0,17,0,0,0,0,0,0,0,0,14,0,0,0,0,0,0,0,0,0,0,0,0,1
+E10,"Round trip gives a functionally identical graph",Implemented,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4
+E11,"Errors with line and column",Partial,0,0,0,0,0,0,0,0,0,39,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,3
+Q1,"Regression tests for fixed bugs",Process,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,5
+Q2,"Projects: unit and end-to-end tests on the real services",Process,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,0,3,0,0,0,39,0,2
+Q3,"16K performance tests",Process,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,79,0,0,3
